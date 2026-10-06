@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Tasks{% endblock %}
+{% block body %}
+<h1>Engineering tasks</h1>
+<p class="muted">Oldest first. A task stays Draft until it has a goal and an acceptance criterion.</p>
+{% if message %}<p class="message" role="alert">{{ message }}</p>{% endif %}
+{% if tasks %}
+<ul class="tasks">
+  {% for task in tasks %}
+  <li><a href="/tasks/{{ task.id }}">{{ task.title }}</a> <span class="status">{{ task.status }}</span></li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>No tasks yet.</p>
+{% endif %}
+<h2>New task</h2>
+<form method="post" action="/tasks">
+  <label for="title">Title</label>
+  <input id="title" name="title" type="text" required>
+  <p><button type="submit">Create task</button></p>
+</form>
+{% endblock %}

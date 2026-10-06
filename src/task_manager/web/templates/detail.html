@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}{{ task.title }}{% endblock %}
+{% block body %}
+<h1>{{ task.title }}</h1>
+<p><span class="status">{{ task.status }}</span></p>
+{% if message %}<p class="message" role="alert">{{ message }}</p>{% endif %}
+{% if task.status == "Cancelled" %}
+<p class="message">Cancelled is final. Continued work is a new task.{% if task.cancel_reason %} Reason: {{ task.cancel_reason }}{% endif %}</p>
+{% endif %}
+
+<h2>Goal</h2>
+{% if task.goal %}<p>{{ task.goal }}</p>{% else %}<p class="muted">No goal yet.</p>{% endif %}
+{% if task.status != "Cancelled" %}
+<form method="post" action="/tasks/{{ task.id }}/goal">
+  <label for="goal">Goal</label>
+  <textarea id="goal" name="goal" rows="3">{{ task.goal or "" }}</textarea>
+  <p><button type="submit">Save goal</button></p>
+</form>
+{% endif %}
+
+<h2>Acceptance criteria</h2>
+{% for criterion in task.criteria %}
+<section class="criterion">
+  <p><strong>{{ criterion.text }}</strong> <span class="status">{{ criterion.state }}</span></p>
+  {% if criterion.state == "Verified" %}
+  <p class="muted">Observed by {{ criterion.provider_name }} at {{ criterion.verified_at }}: {{ criterion.observation }}</p>
+  {% endif %}
+  {% if task.status != "Cancelled" %}
+  <form method="post" action="/tasks/{{ task.id }}/criteria/{{ criterion.id }}/edit">
+    <label for="text-{{ criterion.id }}">Criterion text</label>
+    <input id="text-{{ criterion.id }}" name="text" type="text" value="{{ criterion.text }}">
+    <button type="submit" class="secondary">Update criterion</button>
+  </form>
+  <form method="post" action="/tasks/{{ task.id }}/criteria/{{ criterion.id }}/remove">
+    <button type="submit" class="secondary">Remove criterion</button>
+  </form>
+  {% endif %}
+  {% if task.status == "In Progress" and criterion.state != "Verified" %}
+  <form method="post" action="/tasks/{{ task.id }}/criteria/{{ criterion.id }}/verify">
+    <label for="observation-{{ criterion.id }}">What was observed</label>
+    <textarea id="observation-{{ criterion.id }}" name="observation" rows="2"></textarea>
+    <label><input type="checkbox" name="pass_result" value="pass"> This criterion passed</label>
+    <p><button type="submit">Verify criterion</button></p>
+  </form>
+  {% endif %}
+  {% if task.status == "In Progress" and criterion.state == "Verified" %}
+  <form method="post" action="/tasks/{{ task.id }}/criteria/{{ criterion.id }}/unverify">
+    <button type="submit" class="secondary">Mark unverified</button>
+  </form>
+  {% endif %}
+</section>
+{% else %}
+<p class="muted">No acceptance criteria yet.</p>
+{% endfor %}
+{% if task.status != "Cancelled" %}
+<form method="post" action="/tasks/{{ task.id }}/criteria">
+  <label for="new-criterion">New acceptance criterion</label>
+  <input id="new-criterion" name="text" type="text">
+  <p><button type="submit">Add criterion</button></p>
+</form>
+{% endif %}
+
+<h2>Status</h2>
+{% if task.status == "Draft" %}
+<form method="post" action="/tasks/{{ task.id }}/transition">
+  <input type="hidden" name="action" value="mark_ready">
+  <button type="submit">Mark ready</button>
+</form>
+{% endif %}
+{% if task.status == "Ready" %}
+<form method="post" action="/tasks/{{ task.id }}/transition">
+  <input type="hidden" name="action" value="start">
+  <button type="submit">Start work</button>
+</form>
+{% endif %}
+{% if task.status == "In Progress" %}
+<form method="post" action="/tasks/{{ task.id }}/transition">
+  <input type="hidden" name="action" value="complete">
+  <button type="submit">Mark completed</button>
+</form>
+{% endif %}
+{% if task.status == "Completed" %}
+<form method="post" action="/tasks/{{ task.id }}/transition">
+  <input type="hidden" name="action" value="reopen">
+  <label for="reopen-reason">Reason to reopen</label>
+  <input id="reopen-reason" name="reason" type="text">
+  <p><button type="submit">Reopen</button></p>
+</form>
+{% endif %}
+{% if task.status in ["Draft", "Ready", "In Progress"] %}
+<form method="post" action="/tasks/{{ task.id }}/transition">
+  <input type="hidden" name="action" value="cancel">
+  <label for="cancel-reason">Reason to cancel</label>
+  <input id="cancel-reason" name="reason" type="text">
+  <p><button type="submit" class="secondary">Cancel task</button></p>
+</form>
+{% endif %}
+
+{% if task.history %}
+<ol class="history">
+  {% for change in task.history %}
+  <li>{{ change.from_status }} → {{ change.to_status }} ({{ change.cause_code }}{% if change.cause_detail %}: {{ change.cause_detail }}{% endif %}) at {{ change.occurred_at }}</li>
+  {% endfor %}
+</ol>
+{% else %}
+<p class="muted">No status changes yet.</p>
+{% endif %}
+
+<h2>Subtasks</h2>
+{% if task.subtasks %}
+<ul>
+  {% for sub in task.subtasks %}
+  <li><a href="/tasks/{{ sub.id }}">{{ sub.title }}</a> <span class="status">{{ sub.status }}</span></li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No subtasks.</p>
+{% endif %}
+{% if task.status in ["Draft", "Ready", "In Progress"] %}
+<form method="post" action="/tasks/{{ task.id }}/subtasks">
+  <label for="subtask-title">Subtask title</label>
+  <input id="subtask-title" name="title" type="text">
+  <p><button type="submit">Add subtask</button></p>
+</form>
+{% endif %}
+
+<h2>Decisions</h2>
+{% if task.decisions %}
+<ul>
+  {% for decision in task.decisions %}
+  <li>
+    <strong>{{ decision.statement }}</strong>
+    <p class="muted">{{ decision.rationale }} — {{ decision.recorded_at }}</p>
+    {% if decision.supersedes %}<p class="muted">Supersedes {{ decision.supersedes | join(", ") }}</p>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No decisions yet.</p>
+{% endif %}
+{% if task.status != "Cancelled" %}
+<form method="post" action="/tasks/{{ task.id }}/decisions">
+  <label for="statement">Decision</label>
+  <input id="statement" name="statement" type="text">
+  <label for="rationale">Rationale</label>
+  <textarea id="rationale" name="rationale" rows="2"></textarea>
+  {% if task.decisions %}
+  <label for="supersedes">Supersedes</label>
+  <select id="supersedes" name="supersedes" multiple>
+    {% for decision in task.decisions %}
+    <option value="{{ decision.id }}">{{ decision.id }}: {{ decision.statement }}</option>
+    {% endfor %}
+  </select>
+  {% endif %}
+  <p><button type="submit">Record decision</button></p>
+</form>
+{% endif %}
+{% endblock %}
