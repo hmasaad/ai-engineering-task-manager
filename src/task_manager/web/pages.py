@@ -125,6 +125,87 @@ def add_subtask(request: Request, task_id: int, title: str = Form("")):
     return RedirectResponse(f"/tasks/{task_id}", status_code=303)
 
 
+@router.post("/tasks/{task_id}/implementation-changes")
+def record_change(
+    request: Request,
+    task_id: int,
+    what_changed: str = Form(""),
+    change_class: str = Form("", alias="class"),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).record_change(task_id, what_changed, change_class or None),
+    )
+
+
+@router.post("/tasks/{task_id}/assistant-changes")
+def record_assistant_change(
+    request: Request,
+    task_id: int,
+    project: str = Form(""),
+    what_changed: str = Form(""),
+    change_class: str = Form("", alias="class"),
+    stopped: str = Form(""),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).record_assistant_change(
+            task_id,
+            project,
+            change_class or None,
+            what_changed,
+            stopped == "true",
+        ),
+    )
+
+
+@router.post("/tasks/{task_id}/implementation-changes/{change_id}/approve")
+def approve_change(
+    request: Request,
+    task_id: int,
+    change_id: int,
+    evidence: str = Form(""),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).approve_change(task_id, change_id, evidence),
+    )
+
+
+@router.post("/tasks/{task_id}/implementation-changes/{change_id}/not-carried-out")
+def mark_not_carried_out(
+    request: Request,
+    task_id: int,
+    change_id: int,
+    reason: str = Form(""),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).mark_change_not_carried_out(task_id, change_id, reason),
+    )
+
+
+@router.post("/tasks/{task_id}/implementation-changes/{change_id}/checks")
+def record_check(
+    request: Request,
+    task_id: int,
+    change_id: int,
+    criterion_id: str = Form(""),
+    evidence: str = Form(""),
+    result: str = Form(""),
+):
+    chosen = int(criterion_id) if criterion_id.strip().isdigit() else None
+    return _after(
+        request,
+        task_id,
+        _workspace(request).record_check(task_id, change_id, chosen, evidence, result or None),
+    )
+
+
 @router.post("/tasks/{task_id}/decisions")
 def add_decision(
     request: Request,
@@ -137,4 +218,23 @@ def add_decision(
         request,
         task_id,
         _workspace(request).add_decision(task_id, statement, rationale, supersedes),
+    )
+
+
+@router.post("/tasks/{task_id}/linked-decisions")
+def add_linked_decision(
+    request: Request,
+    task_id: int,
+    statement: str = Form(""),
+    rationale: str = Form(""),
+    check_id: str = Form(""),
+    supersedes: list[int] = Form(default=[]),
+):
+    chosen = int(check_id) if check_id.strip().isdigit() else None
+    return _after(
+        request,
+        task_id,
+        _workspace(request).add_linked_decision(
+            task_id, statement, rationale, chosen, supersedes
+        ),
     )

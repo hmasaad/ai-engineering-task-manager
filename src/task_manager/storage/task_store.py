@@ -3,6 +3,9 @@
 import sqlite3
 
 from task_manager.clock import format_time
+from task_manager.storage.implementation_store import changes_for
+from task_manager.storage.decision_store import check_for_link, check_id_for_decision
+from task_manager.storage.verification_store import checks_for, passing_check
 from task_manager.domain.text import clean
 
 
@@ -187,9 +190,30 @@ def decisions(connection: sqlite3.Connection, task_id: int) -> list[dict[str, ob
                 "rationale": row["rationale"],
                 "recorded_at": row["recorded_at"],
                 "supersedes": [link["earlier_decision_id"] for link in links],
+                "check": _decision_check(connection, int(row["id"])),
             }
         )
     return payloads
+
+
+def _decision_check(connection: sqlite3.Connection, decision_id: int) -> dict[str, object] | None:
+    check_id = check_id_for_decision(connection, decision_id)
+    if check_id is None:
+        return None
+    row = check_for_link(connection, check_id)
+    if row is None:
+        return None
+    return {
+        "id": row["id"],
+        "change_id": row["change_id"],
+        "what_changed": row["what_changed"],
+        "criterion_id": row["criterion_id"],
+        "criterion_text": row["criterion_text"],
+        "evidence": row["evidence"],
+        "result": "Passed" if row["result"] == "passed" else "Failed",
+        "engineer_name": row["engineer_name"],
+        "checked_at": row["checked_at"],
+    }
 
 
 def task_detail(connection: sqlite3.Connection, task_id: int) -> dict[str, object] | None:
@@ -208,7 +232,18 @@ def task_detail(connection: sqlite3.Connection, task_id: int) -> dict[str, objec
         "subtasks": [dict(row) for row in children(connection, task_id)],
         "decisions": decisions(connection, task_id),
         "history": history(connection, task_id),
+        "implementation_changes": _with_checks(connection, task_id),
     }
+
+
+def _with_checks(connection: sqlite3.Connection, task_id: int) -> list[dict[str, object]]:
+    live = {int(row["id"]) for row in criteria_for(connection, task_id)}
+    changes = changes_for(connection, task_id)
+    for change in changes:
+        checks = checks_for(connection, int(change["id"]))
+        change["checks"] = checks
+        change["passing_check"] = passing_check(str(change["outcome"]), checks, live)
+    return changes
 
 
 def stamp(moment) -> str:

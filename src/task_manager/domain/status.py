@@ -3,11 +3,27 @@
 import sqlite3
 
 from task_manager.domain.capture import CANCELLED, _detail, _leave_completed, mark_ready
+from task_manager.domain.implementation import awaiting_accounts
+from task_manager.domain.verification import lacking_accounts
 from task_manager.domain.results import Refusal, bad_request, conflict, missing
 from task_manager.domain.text import clean
 from task_manager.storage import status_store, task_store
 
 MUST_BE_IN_PROGRESS = "The task must be In Progress before it can be completed."
+
+
+def _awaiting_sentence(connection: sqlite3.Connection, task_id: int) -> str | None:
+    waiting = awaiting_accounts(connection, task_id)
+    if not waiting:
+        return None
+    return "Awaiting approval: " + ", ".join(waiting)
+
+
+def _check_sentence(connection: sqlite3.Connection, task_id: int) -> str | None:
+    lacking = lacking_accounts(connection, task_id)
+    if not lacking:
+        return None
+    return "Needs a passing check: " + ", ".join(lacking)
 
 
 def _unfinished_message(connection: sqlite3.Connection, task_id: int) -> str | None:
@@ -21,7 +37,9 @@ def _unfinished_message(connection: sqlite3.Connection, task_id: int) -> str | N
         for row in task_store.children(connection, task_id)
         if row["status"] in ("Draft", "Ready", "In Progress")
     ]
-    if not unmet and not unfinished:
+    waiting = _awaiting_sentence(connection, task_id)
+    needing = _check_sentence(connection, task_id)
+    if not unmet and not unfinished and waiting is None and needing is None:
         return None
     parts: list[str] = []
     if unmet:
@@ -29,6 +47,10 @@ def _unfinished_message(connection: sqlite3.Connection, task_id: int) -> str | N
     if unfinished:
         named = [f"{row['title']} ({row['status']})" for row in unfinished]
         parts.append("Unfinished subtasks: " + ", ".join(named))
+    if waiting is not None:
+        parts.append(waiting)
+    if needing is not None:
+        parts.append(needing)
     return ". ".join(parts) + "."
 
 
@@ -104,9 +126,15 @@ def _cancel(
     if not cleaned:
         return bad_request("A cancellation reason is required.")
     blocking = _blocking_children(connection, int(task["id"]))
+    waiting = _awaiting_sentence(connection, int(task["id"]))
     if blocking:
         names = ", ".join(f"{row['title']} ({row['status']})" for row in blocking)
-        return conflict(f"Subtasks must be finished or cancelled first: {names}.")
+        message = f"Subtasks must be finished or cancelled first: {names}."
+        if waiting is not None:
+            message = f"{message} {waiting}."
+        return conflict(message)
+    if waiting is not None:
+        return conflict(f"{waiting}.")
     task_id = int(task["id"])
     task_store.set_status(connection, task_id, "Cancelled", cleaned)
     status_store.append_change(

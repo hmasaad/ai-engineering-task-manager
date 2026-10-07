@@ -16,13 +16,14 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="AI Engineering Task Manager")
     parser.add_argument("--workspace", required=True, help="Path to the SQLite workspace file")
     parser.add_argument("--engineer", default="Engineer", help="Name copied onto verifications")
+    parser.add_argument("--assistant", default="Assistant", help="Name copied onto assistant changes")
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--host", default=HOST)
     args = parser.parse_args(argv)
     if args.host != HOST:
         print("The server binds to 127.0.0.1 only.", file=sys.stderr)
         return 2
-    workspace = Workspace(args.workspace, SystemClock(), args.engineer)
+    workspace = Workspace(args.workspace, SystemClock(), args.engineer, args.assistant)
     uvicorn.run(create_app(workspace), host=HOST, port=args.port)
     return 0
 

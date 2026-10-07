@@ -38,6 +38,34 @@ def ensure_engineer(connection: sqlite3.Connection, engineer_name: str) -> str:
     return name
 
 
+def ensure_assistant(connection: sqlite3.Connection, assistant_name: str) -> str:
+    name = assistant_name.strip() or "Assistant"
+    row = connection.execute(
+        "SELECT assistant_name FROM workspace_assistant WHERE id = 1"
+    ).fetchone()
+    if row is None:
+        connection.execute(
+            "INSERT INTO workspace_assistant (id, assistant_name) VALUES (1, ?)",
+            (name,),
+        )
+    else:
+        connection.execute(
+            "UPDATE workspace_assistant SET assistant_name = ? WHERE id = 1",
+            (name,),
+        )
+    connection.commit()
+    return name
+
+
+def assistant_name(connection: sqlite3.Connection) -> str:
+    row = connection.execute(
+        "SELECT assistant_name FROM workspace_assistant WHERE id = 1"
+    ).fetchone()
+    if row is None:
+        return "Assistant"
+    return str(row["assistant_name"])
+
+
 def engineer_name(connection: sqlite3.Connection) -> str:
     row = connection.execute("SELECT engineer_name FROM workspace WHERE id = 1").fetchone()
     if row is None:

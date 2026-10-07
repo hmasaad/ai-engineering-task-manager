@@ -124,6 +124,102 @@
 </form>
 {% endif %}
 
+<h2>What changed</h2>
+{% if task.implementation_changes %}
+<ul>
+  {% for change in task.implementation_changes %}
+  <li>
+    <strong>{{ change.what_changed }}</strong>
+    <span class="status">{{ change.class }}</span>
+    <span class="status">{{ change.outcome }}</span>
+    {% if change.recorded_by == "assistant" %}
+    <p class="muted">{{ change.assistant_name }} in {{ change.project }} at {{ change.recorded_at }}</p>
+    {% else %}
+    <p class="muted">Recorded by {{ change.engineer_name }} at {{ change.recorded_at }}</p>
+    {% endif %}
+    {% if change.approval %}
+    <p class="muted">Evidence reviewed by {{ change.approval.engineer_name }} at {{ change.approval.approved_at }}: {{ change.approval.evidence }}</p>
+    {% endif %}
+    {% if change.not_carried_out %}
+    <p class="muted">Not carried out by {{ change.not_carried_out.engineer_name }} at {{ change.not_carried_out.declined_at }}: {{ change.not_carried_out.reason }}</p>
+    {% endif %}
+    {% if change.checks %}
+    <ul>
+      {% for check in change.checks %}
+      <li>
+        {{ check.criterion_text }}
+        <span class="status">{{ check.result }}</span>
+        <p class="muted">Checked by {{ check.engineer_name }} at {{ check.checked_at }}: {{ check.evidence }}</p>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if task.status == "In Progress" and change.outcome == "Carried out" %}
+    <form method="post" action="/tasks/{{ task.id }}/implementation-changes/{{ change.id }}/checks">
+      <label for="check-criterion-{{ change.id }}">Acceptance criterion</label>
+      <select id="check-criterion-{{ change.id }}" name="criterion_id">
+        <option value="">Choose</option>
+        {% for criterion in task.criteria %}
+        <option value="{{ criterion.id }}">{{ criterion.text }}</option>
+        {% endfor %}
+      </select>
+      <label for="check-evidence-{{ change.id }}">Evidence</label>
+      <textarea id="check-evidence-{{ change.id }}" name="evidence" rows="2"></textarea>
+      <label for="check-result-{{ change.id }}">Passed or failed</label>
+      <select id="check-result-{{ change.id }}" name="result">
+        <option value="">Choose</option>
+        <option value="Passed">Passed</option>
+        <option value="Failed">Failed</option>
+      </select>
+      <p><button type="submit">Record check</button></p>
+    </form>
+    {% endif %}
+    {% if task.status == "In Progress" and change.outcome == "Awaiting approval" %}
+    <form method="post" action="/tasks/{{ task.id }}/implementation-changes/{{ change.id }}/approve">
+      <label for="evidence-{{ change.id }}">Evidence reviewed</label>
+      <textarea id="evidence-{{ change.id }}" name="evidence" rows="2"></textarea>
+      <p><button type="submit">Approve change</button></p>
+    </form>
+    <form method="post" action="/tasks/{{ task.id }}/implementation-changes/{{ change.id }}/not-carried-out">
+      <label for="decline-{{ change.id }}">Reason it will not be carried out</label>
+      <input id="decline-{{ change.id }}" name="reason" type="text">
+      <p><button type="submit" class="secondary">Mark not carried out</button></p>
+    </form>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No implementation changes yet.</p>
+{% endif %}
+{% if task.status == "In Progress" %}
+<form method="post" action="/tasks/{{ task.id }}/implementation-changes">
+  <label for="what-changed">What changed</label>
+  <textarea id="what-changed" name="what_changed" rows="2"></textarea>
+  <label for="change-class">Ordinary or consequential</label>
+  <select id="change-class" name="class">
+    <option value="">Choose</option>
+    <option value="ordinary">Ordinary</option>
+    <option value="consequential">Consequential</option>
+  </select>
+  <p><button type="submit">Record change</button></p>
+</form>
+<form method="post" action="/tasks/{{ task.id }}/assistant-changes">
+  <label for="assistant-project">Project</label>
+  <input id="assistant-project" name="project" type="text">
+  <label for="assistant-class">Ordinary or consequential</label>
+  <select id="assistant-class" name="class">
+    <option value="">Choose</option>
+    <option value="ordinary">Ordinary</option>
+    <option value="consequential">Consequential</option>
+  </select>
+  <label for="assistant-what">What changed</label>
+  <textarea id="assistant-what" name="what_changed" rows="2"></textarea>
+  <label><input id="assistant-stopped" name="stopped" type="checkbox" value="true"> Stop before carrying it out</label>
+  <p><button type="submit">Record assistant change</button></p>
+</form>
+{% endif %}
+
 <h2>Decisions</h2>
 {% if task.decisions %}
 <ul>
@@ -131,6 +227,11 @@
   <li>
     <strong>{{ decision.statement }}</strong>
     <p class="muted">{{ decision.rationale }} — {{ decision.recorded_at }}</p>
+    {% if decision.check %}
+    <p>{{ decision.check.criterion_text }}</p>
+    <p class="muted">{{ decision.check.what_changed }}</p>
+    <p class="muted">{{ decision.check.evidence }} — {{ decision.check.result }}</p>
+    {% endif %}
     {% if decision.supersedes %}<p class="muted">Supersedes {{ decision.supersedes | join(", ") }}</p>{% endif %}
   </li>
   {% endfor %}
@@ -153,6 +254,30 @@
   </select>
   {% endif %}
   <p><button type="submit">Record decision</button></p>
+</form>
+<form method="post" action="/tasks/{{ task.id }}/linked-decisions">
+  <label for="linked-statement">Decision on a check</label>
+  <input id="linked-statement" name="statement" type="text">
+  <label for="linked-rationale">Rationale</label>
+  <textarea id="linked-rationale" name="rationale" rows="2"></textarea>
+  <label for="check-id">Check</label>
+  <select id="check-id" name="check_id">
+    <option value="">Choose</option>
+    {% for change in task.implementation_changes %}
+    {% for check in change.checks %}
+    <option value="{{ check.id }}">{{ check.result }}: {{ check.criterion_text }} — {{ change.what_changed }}</option>
+    {% endfor %}
+    {% endfor %}
+  </select>
+  {% if task.decisions %}
+  <label for="linked-supersedes">Supersedes</label>
+  <select id="linked-supersedes" name="supersedes" multiple>
+    {% for decision in task.decisions %}
+    <option value="{{ decision.id }}">{{ decision.id }}: {{ decision.statement }}</option>
+    {% endfor %}
+  </select>
+  {% endif %}
+  <p><button type="submit">Record decision on this check</button></p>
 </form>
 {% endif %}
 {% endblock %}

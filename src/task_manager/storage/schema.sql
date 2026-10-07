@@ -73,3 +73,65 @@ CREATE INDEX IF NOT EXISTS idx_task_parent ON task(parent_id);
 CREATE INDEX IF NOT EXISTS idx_criterion_task ON acceptance_criterion(task_id);
 CREATE INDEX IF NOT EXISTS idx_status_change_task ON status_change(task_id);
 CREATE INDEX IF NOT EXISTS idx_decision_task ON implementation_decision(task_id);
+
+CREATE TABLE IF NOT EXISTS implementation_change (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    what_changed TEXT NOT NULL CHECK (length(trim(what_changed)) > 0),
+    class TEXT NOT NULL CHECK (class IN ('ordinary', 'consequential')),
+    engineer_name TEXT NOT NULL CHECK (length(trim(engineer_name)) > 0),
+    recorded_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS implementation_resolution (
+    change_id INTEGER PRIMARY KEY REFERENCES implementation_change(id),
+    kind TEXT NOT NULL CHECK (kind IN ('approved', 'not_carried_out')),
+    evidence TEXT,
+    reason TEXT,
+    engineer_name TEXT NOT NULL CHECK (length(trim(engineer_name)) > 0),
+    resolved_at TEXT NOT NULL,
+    CHECK (
+        (
+            kind = 'approved'
+            AND evidence IS NOT NULL AND length(trim(evidence)) > 0
+            AND reason IS NULL
+        )
+        OR (
+            kind = 'not_carried_out'
+            AND reason IS NOT NULL AND length(trim(reason)) > 0
+            AND evidence IS NULL
+        )
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_implementation_change_task ON implementation_change(task_id);
+
+CREATE TABLE IF NOT EXISTS implementation_check (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    change_id INTEGER NOT NULL REFERENCES implementation_change(id),
+    criterion_id INTEGER NOT NULL,
+    criterion_text TEXT NOT NULL CHECK (length(trim(criterion_text)) > 0),
+    evidence TEXT NOT NULL CHECK (length(trim(evidence)) > 0),
+    result TEXT NOT NULL CHECK (result IN ('passed', 'failed')),
+    engineer_name TEXT NOT NULL CHECK (length(trim(engineer_name)) > 0),
+    checked_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_implementation_check_change ON implementation_check(change_id);
+
+CREATE TABLE IF NOT EXISTS workspace_assistant (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    assistant_name TEXT NOT NULL CHECK (length(trim(assistant_name)) > 0)
+);
+
+CREATE TABLE IF NOT EXISTS assistant_change (
+    change_id INTEGER PRIMARY KEY REFERENCES implementation_change(id),
+    project TEXT NOT NULL CHECK (length(trim(project)) > 0),
+    assistant_name TEXT NOT NULL CHECK (length(trim(assistant_name)) > 0),
+    stopped INTEGER NOT NULL CHECK (stopped IN (0, 1))
+);
+
+CREATE TABLE IF NOT EXISTS decision_check (
+    decision_id INTEGER PRIMARY KEY REFERENCES implementation_decision(id),
+    check_id INTEGER NOT NULL REFERENCES implementation_check(id)
+);
