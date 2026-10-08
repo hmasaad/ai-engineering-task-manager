@@ -124,6 +124,19 @@
 </form>
 {% endif %}
 
+{% if task.file_reads %}
+<h2>Reads</h2>
+<ul>
+  {% for read in task.file_reads %}
+  <li>
+    <strong>{{ read.path }}</strong>
+    <p class="muted">{{ read.assistant_name }} in {{ read.project }} at {{ read.read_at }}</p>
+    <p class="muted">{{ read.text }}</p>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+
 <h2>What changed</h2>
 {% if task.implementation_changes %}
 <ul>
@@ -134,6 +147,9 @@
     <span class="status">{{ change.outcome }}</span>
     {% if change.recorded_by == "assistant" %}
     <p class="muted">{{ change.assistant_name }} in {{ change.project }} at {{ change.recorded_at }}</p>
+    {% if change.file %}
+    <p class="muted">{{ change.file.path }}{% if change.file.was_new %} new{% else %} was {{ change.file.previous_text }}{% endif %} → {{ change.file.text }}</p>
+    {% endif %}
     {% else %}
     <p class="muted">Recorded by {{ change.engineer_name }} at {{ change.recorded_at }}</p>
     {% endif %}
@@ -215,8 +231,19 @@
   </select>
   <label for="assistant-what">What changed</label>
   <textarea id="assistant-what" name="what_changed" rows="2"></textarea>
+  <label for="assistant-file">File</label>
+  <input id="assistant-file" name="file" type="text">
+  <label for="assistant-file-text">File text</label>
+  <textarea id="assistant-file-text" name="file_text" rows="2"></textarea>
   <label><input id="assistant-stopped" name="stopped" type="checkbox" value="true"> Stop before carrying it out</label>
   <p><button type="submit">Record assistant change</button></p>
+</form>
+<form method="post" action="/tasks/{{ task.id }}/file-reads">
+  <label for="read-project">Project</label>
+  <input id="read-project" name="project" type="text">
+  <label for="read-file">File</label>
+  <input id="read-file" name="file" type="text">
+  <p><button type="submit">Read a file</button></p>
 </form>
 {% endif %}
 

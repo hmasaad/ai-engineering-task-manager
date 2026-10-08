@@ -131,7 +131,31 @@ CREATE TABLE IF NOT EXISTS assistant_change (
     stopped INTEGER NOT NULL CHECK (stopped IN (0, 1))
 );
 
+CREATE TABLE IF NOT EXISTS applied_file (
+    change_id INTEGER PRIMARY KEY REFERENCES implementation_change(id),
+    file_path TEXT NOT NULL CHECK (length(trim(file_path)) > 0),
+    was_new INTEGER NOT NULL CHECK (was_new IN (0, 1)),
+    previous_text TEXT,
+    file_text TEXT NOT NULL,
+    CHECK (
+        (was_new = 1 AND previous_text IS NULL)
+        OR (was_new = 0 AND previous_text IS NOT NULL)
+    )
+);
+
 CREATE TABLE IF NOT EXISTS decision_check (
     decision_id INTEGER PRIMARY KEY REFERENCES implementation_decision(id),
     check_id INTEGER NOT NULL REFERENCES implementation_check(id)
 );
+
+CREATE TABLE IF NOT EXISTS file_read (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    project TEXT NOT NULL CHECK (length(trim(project)) > 0),
+    file_path TEXT NOT NULL CHECK (length(trim(file_path)) > 0),
+    file_text TEXT NOT NULL,
+    assistant_name TEXT NOT NULL CHECK (length(trim(assistant_name)) > 0),
+    read_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_file_read_task ON file_read(task_id, read_at, id);

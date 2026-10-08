@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-07
 
-**Status**: Draft
+**Status**: Accepted
 
 **Input**: User description: "Move to stage 6. The next class of action applies one ordinary change inside the project the engineer names and records the file that was written. A consequential change, a stopped change, and a change that would overwrite an existing file still wait for the engineer's approval and do not change the project until that approval. The assistant does not verify criteria, choose Passed or Failed, record a decision, or complete the task."
 
@@ -13,6 +13,12 @@
 ### Session 2026-10-07
 
 - Q: When the engineer names the project folder, which folder on the computer is that? → A: A folder path. An absolute path is used as given. A relative path is resolved from the folder where the task manager was started. The folder must already exist.
+
+### Session 2026-10-08
+
+- Q: When an ordinary request names a file that already exists, which class does the task show? → A: Consequential. The file is not changed until the engineer approves it. Ordinary still means the file was written.
+- Q: If a folder inside the project is a link to a folder outside it, does the product still write the file? → A: No. Refuse when the file would land outside the project. A link that stays inside the project is allowed.
+- Q: When the existing file is not text, what does the product do? → A: Refuse the request. Nothing is stored, and the file is unchanged. The engineer is told the file is not text.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -46,7 +52,7 @@ An engineer asks the assistant to carry out one ordinary change for an In Progre
 
 ### User Story 2 - Wait before changing a file that is already there (Priority: P2)
 
-A request that would overwrite a file, a consequential request, or an ordinary request the assistant stops, does not change the project. The task shows the proposal as Awaiting approval, including the text already in the file when there was one, and the text the assistant proposed. The engineer approves or declines later. Approval writes the file. Decline does not. The assistant cannot approve or decline.
+A request that would overwrite a file, a consequential request, or an ordinary request the assistant stops, does not change the project. The task shows that proposal as consequential and Awaiting approval, including the text already in the file when there was one, and the text the assistant proposed. The engineer approves or declines later. Approval writes the file. Decline does not. The assistant cannot approve or decline.
 
 **Why this priority**: Writing a new file can be ordinary. Replacing durable text, or any consequential effect, stays outside that boundary until the engineer approves that file.
 
@@ -54,7 +60,7 @@ A request that would overwrite a file, a consequential request, or an ordinary r
 
 **Acceptance Scenarios**:
 
-1. **Given** an In Progress task and an existing file "notes/label.txt" whose text is "Old", **When** the engineer asks the assistant for an ordinary change that would write "Export" into that file, **Then** the file still contains "Old", and the task shows the account, the project, the file, the text "Old", the proposed text "Export", the assistant, and Awaiting approval.
+1. **Given** an In Progress task and an existing file "notes/label.txt" whose text is "Old", **When** the engineer asks the assistant for an ordinary change that would write "Export" into that file, **Then** the file still contains "Old", and the task shows the class consequential, the account, the project, the file, the text "Old", the proposed text "Export", the assistant, and Awaiting approval.
 2. **Given** an In Progress task and no such file, **When** the engineer asks the assistant for a consequential change that would create "notes/label.txt" with the text "Export", **Then** the file is not created and the task shows Awaiting approval, the file, that the file was new, and the proposed text "Export".
 3. **Given** an ordinary request for a new file, **When** the engineer asks the assistant to stop before carrying it out, **Then** the file is not created and the task shows Awaiting approval.
 4. **Given** a waiting proposal whose file was new, **When** the engineer approves it and names the evidence reviewed, **Then** the file is created with the proposed text, the task shows Carried out, and the approval names the engineer and the time.
@@ -92,10 +98,12 @@ The stored record is what a later reader and a later replay use. Reading the tas
 - An absolute project path is used as given. A relative project path is resolved from the folder where the task manager was started. A path that does not exist is refused.
 - If the project folder is blank and the file name is also blank, the engineer is told to name the project this change is for.
 - A file name that uses a parent step, such as one that climbs out of the project folder, is refused, and nothing outside the project is written.
+- A link is followed. If the file would land outside the resolved project folder, the request is refused with `The file must stay inside the named project.` and nothing is stored. A link that stays inside the project is allowed. This check is made again when a waiting proposal is approved, and a failure leaves the proposal unchanged.
+- When the named file already exists and cannot be read as text, the request is refused with `The file is not text.`, nothing is stored, and the file is unchanged. A new file is the text the engineer submitted. If a waiting proposal's file can no longer be read as text, approval does not write it: the file no longer matches the recorded text, and the proposal stays Awaiting approval.
 - The product creates the named file only. It does not create the project folder, and it does not create a missing folder inside the project.
 - An empty file text is a real new file. The account of what changed is still required.
 - One request writes or proposes one file. A second file is a second request.
-- The product does not treat the assistant's confidence as approval. A consequential change, a stopped change, and a replacement of an existing file stay Awaiting approval until the engineer approves that change in a separate action.
+- The product does not treat the assistant's confidence as approval. A consequential change, a stopped change, and a replacement of an existing file are shown as consequential and stay Awaiting approval until the engineer approves that change in a separate action. An ordinary change that was written still shows the class ordinary.
 - Approval writes the proposed text only when the file still matches the text recorded with the proposal. A file that appeared or changed after the proposal is left alone.
 - The assistant does not verify an acceptance criterion, record a check, record a decision, complete a task, or cancel a task.
 - Two requests recorded in the same order, with the same stored file and text, produce the same outcomes and the same order, and the second pass does not write the file again.
@@ -105,17 +113,17 @@ The stored record is what a later reader and a later replay use. Reading the tas
 ### Functional Requirements
 
 - **FR-001**: The engineer MUST be able to ask the assistant to carry out one file change for a task that is In Progress by naming an existing project folder, naming one file inside that folder, stating whether the change is ordinary or consequential, stating whether to stop before writing, providing the account of what changed, and providing the text the file should contain. The project name is a folder path. An absolute path is used as given. A relative path is resolved from the folder where the task manager was started. The task record shows that path.
-- **FR-002**: For an ordinary change that is not stopped, when the file does not already exist and its folder does, the product MUST write that file with the submitted text. The task MUST show the account, the project, the file, that the file was new, the text written, the assistant, Carried out, and the time. The task status MUST stay In Progress.
-- **FR-003**: The product MUST refuse a blank project folder with `Name the project this change is for.` It MUST refuse a missing project folder with `The project must already exist.` It MUST refuse a blank account with `An account of what changed is required.` It MUST refuse a missing or unknown class with `Choose ordinary or consequential.` It MUST refuse a blank file name with `Name the file this change writes.` It MUST refuse a file outside the project with `The file must stay inside the named project.` It MUST refuse a missing destination folder with `The folder for that file must already exist.` A refusal MUST leave the project and the task unchanged.
+- **FR-002**: For an ordinary change that is not stopped, when the file does not already exist and its folder does, the product MUST write that file with the submitted text. The task MUST show the class ordinary, the account, the project, the file, that the file was new, the text written, the assistant, Carried out, and the time. The task status MUST stay In Progress.
+- **FR-003**: The product MUST refuse a blank project folder with `Name the project this change is for.` It MUST refuse a missing project folder with `The project must already exist.` It MUST refuse a blank account with `An account of what changed is required.` It MUST refuse a missing or unknown class with `Choose ordinary or consequential.` It MUST refuse a blank file name with `Name the file this change writes.` It MUST refuse a file outside the project with `The file must stay inside the named project.` It MUST refuse a missing destination folder with `The folder for that file must already exist.` It MUST refuse an existing file that cannot be read as text with `The file is not text.` A refusal MUST leave the project and the task unchanged.
 - **FR-004**: The product MUST refuse the request when the task is Draft, Ready, Completed, or Cancelled, with the same messages used when the engineer records a change. A wrong status is reported before a blank project, a missing folder, a blank account, or a blank file name. An unknown task is reported as `Task not found.`
-- **FR-005**: A consequential request, an ordinary request that is stopped, and an ordinary request that names a file that already exists MUST NOT change the project. The task MUST show the account, the project, the file, the text the file already had or that the file was new, the proposed text, the assistant, and Awaiting approval. The task status MUST stay In Progress.
+- **FR-005**: A consequential request, an ordinary request that is stopped, and an ordinary request that names a file that already exists MUST NOT change the project. Each of those MUST be shown as class consequential, in the same way a stopped ordinary request is stored. The task MUST show the account, the project, the file, the text the file already had or that the file was new, the proposed text, the assistant, and Awaiting approval. The task status MUST stay In Progress. Ordinary still means the file was written.
 - **FR-006**: The engineer MUST be able to approve a waiting file proposal by naming the evidence reviewed. Approval MUST write the proposed text only when the file still matches the recorded text, or when the file is still absent for a proposal that said the file was new. The approval MUST name the engineer and the time, and the outcome MUST become Carried out. If the file no longer matches, the product MUST leave the file and the proposal unchanged and tell the engineer `The file no longer matches the text this change was proposed against.`
 - **FR-007**: The engineer MUST be able to mark a waiting file proposal not carried out by giving a reason. The project MUST stay unchanged. The assistant MUST NOT be able to approve or decline. Those attempts MUST be told `The assistant cannot approve a change.` and `The assistant cannot decline a change.` and MUST store nothing further.
 - **FR-008**: A stored file change MUST NOT be edited or removed. Replaying that stored record MUST show the same file, text, assistant, and outcome, and MUST NOT write the file again or ask the assistant to produce the text again.
 - **FR-009**: An assistant file change MUST name exactly one task, one project, one file, and the assistant. A change on a subtask MUST NOT appear as a change of the parent. An earlier assistant change that has no file MUST remain readable and MUST NOT cause a file to be written.
 - **FR-010**: Recording a file change MUST NOT verify a criterion, record a check, record a decision, or change the task status. Completing the task MUST still wait until a carried-out change has a passing check. The assistant MUST NOT record that check, record a decision, or complete or cancel the task.
 - **FR-011**: An engineer recording a change without a file MUST NOT modify the named project.
-- **FR-012**: One request MUST write or propose at most one file, and that file MUST stay inside the project named for that request.
+- **FR-012**: One request MUST write or propose at most one file, and that file MUST stay inside the project named for that request. The product MUST follow links. It MUST refuse, with `The file must stay inside the named project.`, when the resolved file would land outside the resolved project folder, and it MUST store nothing for that request. A link that stays inside the project is allowed. The same check MUST be made again before an approval writes the file. If it fails, the file and the proposal stay unchanged.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -138,7 +146,9 @@ The stored record is what a later reader and a later replay use. Reading the tas
 
 - The assistant record from the previous stage is already in place. This feature adds the file that record writes or proposes. It does not add people, sharing, or a second approver.
 - The text of the file is the text the assistant has already produced. The product does not ask the assistant to produce it again, and it does not invent the text.
-- The engineer names an existing project folder by a path and says whether the request is ordinary or consequential. An absolute path is used as given. A relative path is resolved from the folder where the task manager was started. The product does not infer the class from the file text. Replacing an existing file is treated as consequential even when the engineer said ordinary: the file is left unchanged until the engineer approves that proposal.
+- The engineer names an existing project folder by a path and says whether the request is ordinary or consequential. An absolute path is used as given. A relative path is resolved from the folder where the task manager was started. The product does not infer the class from the file text, except that replacing an existing file is stored as consequential even when the engineer said ordinary. The file is left unchanged, and the task shows the class consequential, until the engineer approves that proposal.
+- Links are followed. The boundary is the resolved project folder. A file that would land outside that folder is refused. A link that stays inside it is part of the project.
+- This feature writes text. An existing file that cannot be read as text is refused, and nothing is stored. The text of a new file is the text the engineer submitted.
 - Creating a missing folder, deleting a file, changing permissions, spending money, contacting an external party, merging, and deploying stay out of this action. Those requests are not given a special new form; a consequential choice or a stop still waits, and this feature does not carry them out on its own.
 - The assistant has a name, distinct from the engineer. The written file and the proposal show that name. Approval and decline still show the engineer.
 - An earlier assistant change that recorded only an account and a project stays valid. This feature does not go back and write a file for it.

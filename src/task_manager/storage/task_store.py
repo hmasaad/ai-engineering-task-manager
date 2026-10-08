@@ -3,6 +3,7 @@
 import sqlite3
 
 from task_manager.clock import format_time
+from task_manager.storage import file_read_store
 from task_manager.storage.implementation_store import changes_for
 from task_manager.storage.decision_store import check_for_link, check_id_for_decision
 from task_manager.storage.verification_store import checks_for, passing_check
@@ -233,6 +234,7 @@ def task_detail(connection: sqlite3.Connection, task_id: int) -> dict[str, objec
         "decisions": decisions(connection, task_id),
         "history": history(connection, task_id),
         "implementation_changes": _with_checks(connection, task_id),
+        "file_reads": file_read_store.file_reads_for(connection, task_id),
     }
 
 

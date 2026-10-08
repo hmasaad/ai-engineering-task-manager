@@ -18,10 +18,15 @@ SELECT
     r.resolved_at,
     a.project AS assistant_project,
     a.assistant_name AS assistant_actor,
-    a.stopped AS assistant_stopped
+    a.stopped AS assistant_stopped,
+    f.file_path AS applied_path,
+    f.was_new AS applied_was_new,
+    f.previous_text AS applied_previous,
+    f.file_text AS applied_text
 FROM implementation_change AS c
 LEFT JOIN implementation_resolution AS r ON r.change_id = c.id
 LEFT JOIN assistant_change AS a ON a.change_id = c.id
+LEFT JOIN applied_file AS f ON f.change_id = c.id
 """
 
 
@@ -81,6 +86,36 @@ def insert_assistant_change(
     )
 
 
+def insert_applied_file(
+    connection: sqlite3.Connection,
+    change_id: int,
+    file_path: str,
+    was_new: int,
+    previous_text: str | None,
+    file_text: str,
+) -> None:
+    connection.execute(
+        """
+        INSERT INTO applied_file (
+            change_id, file_path, was_new, previous_text, file_text
+        )
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (change_id, file_path, was_new, previous_text, file_text),
+    )
+
+
+def row_applied_file(connection: sqlite3.Connection, change_id: int) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT file_path, was_new, previous_text, file_text
+        FROM applied_file
+        WHERE change_id = ?
+        """,
+        (change_id,),
+    ).fetchone()
+
+
 def row_change(connection: sqlite3.Connection, change_id: int) -> sqlite3.Row | None:
     return connection.execute(
         _CHANGE_SQL + " WHERE c.id = ?",
@@ -132,4 +167,17 @@ def change_payload(row: sqlite3.Row) -> dict[str, object]:
         "assistant_name": row["assistant_actor"],
         "recorded_by": "assistant" if row["assistant_actor"] is not None else "engineer",
         "stopped": row["assistant_stopped"] == 1,
+        "file": _file_payload(row),
+    }
+
+
+def _file_payload(row: sqlite3.Row) -> dict[str, object] | None:
+    if row["applied_path"] is None:
+        return None
+    was_new = row["applied_was_new"] == 1
+    return {
+        "path": row["applied_path"],
+        "was_new": was_new,
+        "previous_text": None if was_new else row["applied_previous"],
+        "text": row["applied_text"],
     }

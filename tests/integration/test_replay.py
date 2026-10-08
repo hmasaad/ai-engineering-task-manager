@@ -4,8 +4,9 @@ from task_manager.clock import ScriptedClock
 from task_manager.workspace import Workspace
 
 
-def _script(path, clock):
-    workspace = Workspace(path, clock, "Ada", "Guide")
+def _script(path, clock, project_root):
+    (project_root / "billing" / "notes").mkdir(parents=True)
+    workspace = Workspace(path, clock, "Ada", "Guide", project_root)
     try:
         created = workspace.create_task("Add export")
         workspace.set_goal(created["id"], "Take the record")
@@ -64,6 +65,16 @@ def _script(path, clock):
         workspace.record_assistant_change(
             reopened["id"], "billing", "ordinary", "Rename the export label", False
         )
+        workspace.record_assistant_change(
+            reopened["id"],
+            "billing",
+            "ordinary",
+            "Rename the export label",
+            False,
+            "notes/label.txt",
+            "Export",
+        )
+        workspace.record_file_read(reopened["id"], "billing", "notes/label.txt")
         return _snapshot(workspace, detail["id"])
     finally:
         workspace.close()
@@ -97,18 +108,30 @@ def _snapshot(workspace, root_id):
                 "project": item["project"],
                 "assistant_name": item["assistant_name"],
                 "recorded_by": item["recorded_by"],
+                "file": item["file"],
                 "checks": [check["result"] for check in item["checks"]],
             }
             for item in detail["implementation_changes"]
         ],
         "order": [item["id"] for item in workspace.list_tasks()],
+        "file_reads": [
+            {
+                "path": item["path"],
+                "text": item["text"],
+                "project": item["project"],
+                "assistant_name": item["assistant_name"],
+            }
+            for item in detail["file_reads"]
+        ],
     }
 
 
 def test_same_commands_and_clock_produce_the_same_outcome(tmp_path):
     start = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
-    first = _script(tmp_path / "one.db", ScriptedClock(start=start))
-    second = _script(tmp_path / "two.db", ScriptedClock(start=start))
+    first_root = tmp_path / "one-project"
+    second_root = tmp_path / "two-project"
+    first = _script(tmp_path / "one.db", ScriptedClock(start=start), first_root)
+    second = _script(tmp_path / "two.db", ScriptedClock(start=start), second_root)
     assert first == second
     assert first["status"] == "In Progress"
     assert first["criteria"][0]["state"] == "Verified"
@@ -117,9 +140,34 @@ def test_same_commands_and_clock_produce_the_same_outcome(tmp_path):
     assert first["decisions"][0]["evidence"] == "The label was still old"
     assert first["decisions"][0]["result"] == "Failed"
     assert first["decisions"][0]["check_id"] == second["decisions"][0]["check_id"]
-    assisted = next(item for item in first["changes"] if item["recorded_by"] == "assistant")
+    assisted = next(
+        item for item in first["changes"] if item["recorded_by"] == "assistant" and item["file"] is None
+    )
     assert assisted["what_changed"] == "Rename the export label"
     assert assisted["project"] == "billing"
     assert assisted["assistant_name"] == "Guide"
     assert assisted["class"] == "ordinary"
     assert assisted["outcome"] == "Carried out"
+    filed = next(item for item in first["changes"] if item["file"] is not None)
+    assert filed["file"]["path"] == "notes/label.txt"
+    assert filed["file"]["text"] == "Export"
+    assert filed["assistant_name"] == "Guide"
+    assert filed["outcome"] == "Carried out"
+    assert (first_root / "billing" / "notes" / "label.txt").read_text(encoding="utf-8") == "Export"
+    assert (second_root / "billing" / "notes" / "label.txt").read_text(encoding="utf-8") == "Export"
+    assert first["file_reads"] == [
+        {
+            "path": "notes/label.txt",
+            "text": "Export",
+            "project": "billing",
+            "assistant_name": "Guide",
+        }
+    ]
+    opened = Workspace(tmp_path / "one.db", ScriptedClock(start=start), "Ada", "Guide", first_root)
+    try:
+        (first_root / "billing" / "notes" / "label.txt").write_text("Newer", encoding="utf-8")
+        task_id = opened.list_tasks()[0]["id"]
+        assert opened.get_task(task_id)["file_reads"][0]["text"] == "Export"
+        assert (first_root / "billing" / "notes" / "label.txt").read_text(encoding="utf-8") == "Newer"
+    finally:
+        opened.close()

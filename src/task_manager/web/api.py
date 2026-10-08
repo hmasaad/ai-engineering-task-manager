@@ -74,12 +74,20 @@ class NotCarriedOutIn(BaseModel):
     actor: str | None = None
 
 
+class FileReadIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    project: str
+    file: str
+
+
 class AssistantChangeIn(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
     project: str
     what_changed: str
     change_class: str | None = Field(default=None, alias="class")
     stopped: bool = False
+    file: str | None = None
+    file_text: str | None = None
 
 
 class CheckIn(BaseModel):
@@ -161,11 +169,24 @@ def record_change(request: Request, task_id: int, body: ImplementationChangeIn):
     )
 
 
+@router.post("/tasks/{task_id}/file-reads")
+def record_file_read(request: Request, task_id: int, body: FileReadIn):
+    return _respond(
+        request.app.state.workspace.record_file_read(task_id, body.project, body.file)
+    )
+
+
 @router.post("/tasks/{task_id}/assistant-changes")
 def record_assistant_change(request: Request, task_id: int, body: AssistantChangeIn):
     return _respond(
         request.app.state.workspace.record_assistant_change(
-            task_id, body.project, body.change_class, body.what_changed, body.stopped
+            task_id,
+            body.project,
+            body.change_class,
+            body.what_changed,
+            body.stopped,
+            body.file,
+            "" if body.file is not None and body.file_text is None else body.file_text,
         )
     )
 

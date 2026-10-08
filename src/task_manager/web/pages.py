@@ -139,6 +139,20 @@ def record_change(
     )
 
 
+@router.post("/tasks/{task_id}/file-reads")
+def record_file_read(
+    request: Request,
+    task_id: int,
+    project: str = Form(""),
+    file_path: str = Form("", alias="file"),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).record_file_read(task_id, project, file_path),
+    )
+
+
 @router.post("/tasks/{task_id}/assistant-changes")
 def record_assistant_change(
     request: Request,
@@ -147,6 +161,8 @@ def record_assistant_change(
     what_changed: str = Form(""),
     change_class: str = Form("", alias="class"),
     stopped: str = Form(""),
+    file_path: str = Form("", alias="file"),
+    file_text: str = Form(""),
 ):
     return _after(
         request,
@@ -157,6 +173,8 @@ def record_assistant_change(
             change_class or None,
             what_changed,
             stopped == "true",
+            file_path,
+            file_text,
         ),
     )
 

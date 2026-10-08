@@ -4,7 +4,7 @@ import threading
 from pathlib import Path
 
 from task_manager.clock import ScriptedClock, SystemClock, format_time
-from task_manager.domain import capture, decisions, implementation, status, subtasks, verification
+from task_manager.domain import capture, decisions, file_read, implementation, status, subtasks, verification
 from task_manager.domain.results import Refusal
 from task_manager.storage.connection import (
     call_in_transaction,
@@ -22,12 +22,14 @@ class Workspace:
         clock: SystemClock | ScriptedClock | None = None,
         engineer_name: str = "Engineer",
         assistant_name: str = "Assistant",
+        project_root: str | Path | None = None,
     ) -> None:
         self.connection = connect(path)
         self.clock = clock or SystemClock()
         self._lock = threading.Lock()
         self.engineer_name = ensure_engineer(self.connection, engineer_name)
         self.assistant_name = ensure_assistant(self.connection, assistant_name)
+        self.project_root = Path(project_root) if project_root is not None else Path.cwd()
 
     def close(self) -> None:
         self.connection.close()
@@ -114,6 +116,19 @@ class Workspace:
             )
         )
 
+    def record_file_read(
+        self,
+        task_id: int,
+        project: str | None,
+        file_path: str | None,
+        assistant_name: str | None = None,
+    ):
+        del assistant_name
+        root = self.project_root
+        return self._run(
+            lambda conn, at: file_read.read_file(conn, task_id, project, file_path, at, root)
+        )
+
     def record_assistant_change(
         self,
         task_id: int,
@@ -121,10 +136,22 @@ class Workspace:
         change_class: str | None,
         what_changed: str | None,
         stopped: bool = False,
+        file_path: str | None = None,
+        file_text: str | None = None,
     ):
+        root = self.project_root
         return self._run(
             lambda conn, at: implementation.record_assistant(
-                conn, task_id, project, change_class, what_changed, stopped, at
+                conn,
+                task_id,
+                project,
+                change_class,
+                what_changed,
+                stopped,
+                at,
+                file_path,
+                file_text,
+                root,
             )
         )
 
@@ -135,9 +162,10 @@ class Workspace:
         evidence: str | None,
         actor: str | None = None,
     ):
+        root = self.project_root
         return self._run(
             lambda conn, at: implementation.approve(
-                conn, task_id, change_id, evidence, at, actor
+                conn, task_id, change_id, evidence, at, actor, root
             )
         )
 
