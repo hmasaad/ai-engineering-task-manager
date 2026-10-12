@@ -74,6 +74,16 @@ class NotCarriedOutIn(BaseModel):
     actor: str | None = None
 
 
+class ModelFileIn(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+    project: str
+    what_changed: str
+    change_class: str | None = Field(default=None, alias="class")
+    stopped: bool = False
+    file: str
+    file_read_id: int | None = None
+
+
 class FileReadIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
     project: str
@@ -92,6 +102,14 @@ class AssistantChangeIn(BaseModel):
 
 class CheckIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
+    criterion_id: int | None = None
+    evidence: str = ""
+    result: str | None = None
+
+
+class AssistantCheckIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    change_id: int
     criterion_id: int | None = None
     evidence: str = ""
     result: str | None = None
@@ -169,6 +187,21 @@ def record_change(request: Request, task_id: int, body: ImplementationChangeIn):
     )
 
 
+@router.post("/tasks/{task_id}/model-files")
+def record_model_file(request: Request, task_id: int, body: ModelFileIn):
+    return _respond(
+        request.app.state.workspace.record_model_file(
+            task_id,
+            body.project,
+            body.change_class,
+            body.what_changed,
+            body.stopped,
+            body.file,
+            body.file_read_id,
+        )
+    )
+
+
 @router.post("/tasks/{task_id}/file-reads")
 def record_file_read(request: Request, task_id: int, body: FileReadIn):
     return _respond(
@@ -209,6 +242,15 @@ def mark_not_carried_out(request: Request, task_id: int, change_id: int, body: N
     )
 
 
+@router.post("/tasks/{task_id}/assistant-checks")
+def record_assistant_check(request: Request, task_id: int, body: AssistantCheckIn):
+    return _respond(
+        request.app.state.workspace.record_assistant_check(
+            task_id, body.change_id, body.criterion_id, body.evidence, body.result
+        )
+    )
+
+
 @router.post("/tasks/{task_id}/implementation-changes/{change_id}/checks")
 def record_check(request: Request, task_id: int, change_id: int, body: CheckIn):
     return _respond(
@@ -232,5 +274,111 @@ def add_linked_decision(request: Request, task_id: int, body: LinkedDecisionIn):
     return _respond(
         request.app.state.workspace.add_linked_decision(
             task_id, body.statement, body.rationale, body.check_id, body.supersedes
+        )
+    )
+
+
+class RequirementIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    statement: str
+    kind: str | None = None
+
+
+class TaskLinkIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    task_id: int
+
+
+class CriterionLinkIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    task_id: int
+    criterion_id: int
+
+
+class RequirementCheckIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str
+
+
+class RequirementRunIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    check: str
+    result: str | None = None
+    run_identifier: str = ""
+
+
+@router.get("/requirements")
+def list_requirements(request: Request):
+    return request.app.state.workspace.list_requirements()
+
+
+@router.post("/requirements")
+def record_requirement(request: Request, body: RequirementIn):
+    return _respond(request.app.state.workspace.record_requirement(body.statement, body.kind))
+
+
+@router.get("/requirements/{requirement_id}")
+def read_requirement(request: Request, requirement_id: int):
+    return _respond(request.app.state.workspace.get_requirement(requirement_id))
+
+
+@router.post("/requirements/{requirement_id}")
+def change_requirement(request: Request, requirement_id: int, body: RequirementIn):
+    return _respond(
+        request.app.state.workspace.change_requirement(
+            requirement_id, body.statement, body.kind
+        )
+    )
+
+
+@router.post("/requirements/{requirement_id}/tasks")
+def link_requirement_task(request: Request, requirement_id: int, body: TaskLinkIn):
+    return _respond(
+        request.app.state.workspace.link_requirement_task(requirement_id, body.task_id)
+    )
+
+
+@router.post("/requirements/{requirement_id}/criteria")
+def link_requirement_criterion(request: Request, requirement_id: int, body: CriterionLinkIn):
+    return _respond(
+        request.app.state.workspace.link_requirement_criterion(
+            requirement_id, body.task_id, body.criterion_id
+        )
+    )
+
+
+@router.post("/requirements/{requirement_id}/tasks/{task_id}/unlink")
+def unlink_requirement_task(request: Request, requirement_id: int, task_id: int):
+    return _respond(
+        request.app.state.workspace.unlink_requirement_task(requirement_id, task_id)
+    )
+
+
+@router.post("/requirements/{requirement_id}/criteria/{criterion_id}/unlink")
+def unlink_requirement_criterion(request: Request, requirement_id: int, criterion_id: int):
+    return _respond(
+        request.app.state.workspace.unlink_requirement_criterion(requirement_id, criterion_id)
+    )
+
+
+@router.post("/requirements/{requirement_id}/checks")
+def name_requirement_check(request: Request, requirement_id: int, body: RequirementCheckIn):
+    return _respond(
+        request.app.state.workspace.name_requirement_check(requirement_id, body.name)
+    )
+
+
+@router.post("/requirements/{requirement_id}/checks/{check_id}/remove")
+def remove_requirement_check(request: Request, requirement_id: int, check_id: int):
+    return _respond(
+        request.app.state.workspace.remove_requirement_check(requirement_id, check_id)
+    )
+
+
+@router.post("/requirements/{requirement_id}/runs")
+def record_requirement_run(request: Request, requirement_id: int, body: RequirementRunIn):
+    return _respond(
+        request.app.state.workspace.record_requirement_run(
+            requirement_id, body.check, body.result, body.run_identifier
         )
     )

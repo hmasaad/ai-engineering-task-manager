@@ -6,7 +6,7 @@ from task_manager.domain.capture import CANCELLED, _detail
 from task_manager.domain.results import bad_request, conflict, missing
 from task_manager.domain.text import clean
 from task_manager.storage import implementation_store, task_store, verification_store
-from task_manager.storage.connection import engineer_name
+from task_manager.storage.connection import assistant_name, engineer_name
 
 EVIDENCE_REQUIRED = "An account of the evidence is required."
 CHOOSE_RESULT = "Choose Passed or Failed."
@@ -72,6 +72,58 @@ def record(
         engineer_name(connection),
         occurred_at,
     )
+    return _detail(connection, int(task["id"]))
+
+
+def record_assistant(
+    connection: sqlite3.Connection,
+    task_id: int,
+    change_id: int,
+    criterion_id: int | None,
+    evidence: str | None,
+    result: str | None,
+    occurred_at: str,
+):
+    task = task_store.row_task(connection, task_id)
+    if task is None:
+        return missing("Task not found.")
+    status_refusal = _status(task["status"])
+    if status_refusal is not None:
+        return status_refusal
+    change = implementation_store.row_change(connection, change_id)
+    if change is None:
+        return missing(CHANGE_NOT_FOUND)
+    if int(change["task_id"]) != int(task["id"]):
+        return conflict(CHECK_SAME_TASK)
+    outcome = implementation_store.change_payload(change)["outcome"]
+    if outcome == "Awaiting approval":
+        return conflict(MUST_BE_CARRIED_OUT)
+    if outcome == "Not carried out":
+        return conflict(NOT_CARRIED_OUT)
+    if criterion_id is None:
+        return bad_request(CHOOSE_CRITERION)
+    criterion = _criterion(connection, criterion_id)
+    if criterion is None:
+        return missing(CRITERION_NOT_FOUND)
+    if int(criterion["task_id"]) != int(task["id"]):
+        return conflict(CRITERION_SAME_TASK)
+    seen = clean(evidence)
+    if not seen:
+        return bad_request(EVIDENCE_REQUIRED)
+    stored = _RESULTS.get(result or "")
+    if stored is None:
+        return bad_request(CHOOSE_RESULT)
+    check_id = verification_store.insert_check(
+        connection,
+        int(change["id"]),
+        int(criterion["id"]),
+        criterion["text"],
+        seen,
+        stored,
+        engineer_name(connection),
+        occurred_at,
+    )
+    verification_store.insert_assistant_check(connection, check_id, assistant_name(connection))
     return _detail(connection, int(task["id"]))
 
 

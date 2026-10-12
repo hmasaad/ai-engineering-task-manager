@@ -4,7 +4,17 @@ import threading
 from pathlib import Path
 
 from task_manager.clock import ScriptedClock, SystemClock, format_time
-from task_manager.domain import capture, decisions, file_read, implementation, status, subtasks, verification
+from task_manager.domain import (
+    capture,
+    decisions,
+    file_read,
+    implementation,
+    model_file,
+    requirement,
+    status,
+    subtasks,
+    verification,
+)
 from task_manager.domain.results import Refusal
 from task_manager.storage.connection import (
     call_in_transaction,
@@ -12,6 +22,8 @@ from task_manager.storage.connection import (
     ensure_assistant,
     ensure_engineer,
 )
+from task_manager.storage.requirement_store import detail as requirement_detail
+from task_manager.storage.requirement_store import list_payloads
 from task_manager.storage.task_store import list_top_level, task_detail
 
 
@@ -23,6 +35,7 @@ class Workspace:
         engineer_name: str = "Engineer",
         assistant_name: str = "Assistant",
         project_root: str | Path | None = None,
+        model=None,
     ) -> None:
         self.connection = connect(path)
         self.clock = clock or SystemClock()
@@ -30,6 +43,7 @@ class Workspace:
         self.engineer_name = ensure_engineer(self.connection, engineer_name)
         self.assistant_name = ensure_assistant(self.connection, assistant_name)
         self.project_root = Path(project_root) if project_root is not None else Path.cwd()
+        self.model = model
 
     def close(self) -> None:
         self.connection.close()
@@ -129,6 +143,34 @@ class Workspace:
             lambda conn, at: file_read.read_file(conn, task_id, project, file_path, at, root)
         )
 
+    def record_model_file(
+        self,
+        task_id: int,
+        project: str | None,
+        change_class: str | None,
+        what_changed: str | None,
+        stopped: bool = False,
+        file_path: str | None = None,
+        file_read_id: int | None = None,
+    ):
+        root = self.project_root
+        model = self.model
+        return self._run(
+            lambda conn, at: model_file.record_model_file(
+                conn,
+                task_id,
+                project,
+                change_class,
+                what_changed,
+                stopped,
+                file_path,
+                file_read_id,
+                at,
+                root,
+                model,
+            )
+        )
+
     def record_assistant_change(
         self,
         task_id: int,
@@ -196,6 +238,20 @@ class Workspace:
             )
         )
 
+    def record_assistant_check(
+        self,
+        task_id: int,
+        change_id: int,
+        criterion_id: int | None,
+        evidence: str | None,
+        result: str | None,
+    ):
+        return self._run(
+            lambda conn, at: verification.record_assistant(
+                conn, task_id, change_id, criterion_id, evidence, result, at
+            )
+        )
+
     def add_decision(
         self,
         task_id: int,
@@ -222,6 +278,74 @@ class Workspace:
         return self._run(
             lambda conn, at: decisions.add_linked_decision(
                 conn, task_id, statement, rationale, check_id, supersedes, at
+            )
+        )
+
+
+    def list_requirements(self) -> list[dict[str, object]]:
+        with self._lock:
+            return list_payloads(self.connection)
+
+    def get_requirement(self, requirement_id: int):
+        with self._lock:
+            detail = requirement_detail(self.connection, requirement_id)
+        if detail is None:
+            from task_manager.domain.results import missing
+
+            return missing("Requirement not found.")
+        return detail
+
+    def record_requirement(self, statement: str | None, kind: str | None):
+        return self._run(lambda conn, at: requirement.record(conn, statement, kind, at))
+
+    def change_requirement(self, requirement_id: int, statement: str | None, kind: str | None):
+        return self._run(
+            lambda conn, at: requirement.change(conn, requirement_id, statement, kind, at)
+        )
+
+    def link_requirement_task(self, requirement_id: int, task_id: int | None):
+        return self._run(lambda conn, _at: requirement.link_task(conn, requirement_id, task_id))
+
+    def link_requirement_criterion(
+        self,
+        requirement_id: int,
+        task_id: int | None,
+        criterion_id: int | None,
+    ):
+        return self._run(
+            lambda conn, _at: requirement.link_criterion(
+                conn, requirement_id, task_id, criterion_id
+            )
+        )
+
+    def unlink_requirement_task(self, requirement_id: int, task_id: int):
+        return self._run(
+            lambda conn, _at: requirement.unlink_task(conn, requirement_id, task_id)
+        )
+
+    def unlink_requirement_criterion(self, requirement_id: int, criterion_id: int):
+        return self._run(
+            lambda conn, _at: requirement.unlink_criterion(conn, requirement_id, criterion_id)
+        )
+
+    def name_requirement_check(self, requirement_id: int, name: str | None):
+        return self._run(lambda conn, _at: requirement.name_check(conn, requirement_id, name))
+
+    def remove_requirement_check(self, requirement_id: int, check_id: int):
+        return self._run(
+            lambda conn, at: requirement.remove_check(conn, requirement_id, check_id, at)
+        )
+
+    def record_requirement_run(
+        self,
+        requirement_id: int,
+        check_name: str | None,
+        result: str | None,
+        run_identifier: str | None,
+    ):
+        return self._run(
+            lambda conn, at: requirement.record_run(
+                conn, requirement_id, check_name, result, run_identifier, at
             )
         )
 

@@ -64,9 +64,11 @@ def check_for_link(connection: sqlite3.Connection, check_id: int) -> sqlite3.Row
             implementation_check.evidence,
             implementation_check.result,
             implementation_check.engineer_name,
-            implementation_check.checked_at
+            implementation_check.checked_at,
+            assistant_check.assistant_name
         FROM implementation_check
         JOIN implementation_change ON implementation_change.id = implementation_check.change_id
+        LEFT JOIN assistant_check ON assistant_check.check_id = implementation_check.id
         WHERE implementation_check.id = ?
         """,
         (check_id,),

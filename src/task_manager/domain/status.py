@@ -4,6 +4,7 @@ import sqlite3
 
 from task_manager.domain.capture import CANCELLED, _detail, _leave_completed, mark_ready
 from task_manager.domain.implementation import awaiting_accounts
+from task_manager.domain.requirement import blocking_identifiers
 from task_manager.domain.verification import lacking_accounts
 from task_manager.domain.results import Refusal, bad_request, conflict, missing
 from task_manager.domain.text import clean
@@ -39,7 +40,8 @@ def _unfinished_message(connection: sqlite3.Connection, task_id: int) -> str | N
     ]
     waiting = _awaiting_sentence(connection, task_id)
     needing = _check_sentence(connection, task_id)
-    if not unmet and not unfinished and waiting is None and needing is None:
+    blocked = blocking_identifiers(connection, task_id)
+    if not unmet and not unfinished and waiting is None and needing is None and not blocked:
         return None
     parts: list[str] = []
     if unmet:
@@ -51,6 +53,8 @@ def _unfinished_message(connection: sqlite3.Connection, task_id: int) -> str | N
         parts.append(waiting)
     if needing is not None:
         parts.append(needing)
+    if blocked:
+        parts.append("A required check has not passed: " + ", ".join(blocked))
     return ". ".join(parts) + "."
 
 

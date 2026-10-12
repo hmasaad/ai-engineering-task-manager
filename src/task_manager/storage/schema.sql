@@ -119,6 +119,11 @@ CREATE TABLE IF NOT EXISTS implementation_check (
 
 CREATE INDEX IF NOT EXISTS idx_implementation_check_change ON implementation_check(change_id);
 
+CREATE TABLE IF NOT EXISTS assistant_check (
+    check_id INTEGER PRIMARY KEY REFERENCES implementation_check(id),
+    assistant_name TEXT NOT NULL CHECK (length(trim(assistant_name)) > 0)
+);
+
 CREATE TABLE IF NOT EXISTS workspace_assistant (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     assistant_name TEXT NOT NULL CHECK (length(trim(assistant_name)) > 0)
@@ -159,3 +164,55 @@ CREATE TABLE IF NOT EXISTS file_read (
 );
 
 CREATE INDEX IF NOT EXISTS idx_file_read_task ON file_read(task_id, read_at, id);
+
+CREATE TABLE IF NOT EXISTS model_call (
+    change_id INTEGER PRIMARY KEY REFERENCES implementation_change(id),
+    file_read_id INTEGER NOT NULL REFERENCES file_read(id),
+    model_name TEXT NOT NULL CHECK (length(trim(model_name)) > 0),
+    model_input TEXT NOT NULL CHECK (length(model_input) > 0),
+    model_output TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS requirement (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind TEXT NOT NULL CHECK (kind IN ('functional', 'non-functional')),
+    statement TEXT NOT NULL CHECK (length(trim(statement)) > 0),
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS requirement_task (
+    requirement_id INTEGER NOT NULL REFERENCES requirement(id),
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    PRIMARY KEY (requirement_id, task_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_requirement_task_task ON requirement_task(task_id);
+
+CREATE TABLE IF NOT EXISTS requirement_criterion (
+    requirement_id INTEGER NOT NULL REFERENCES requirement(id),
+    criterion_id INTEGER NOT NULL REFERENCES acceptance_criterion(id) ON DELETE CASCADE,
+    PRIMARY KEY (requirement_id, criterion_id)
+);
+
+CREATE TABLE IF NOT EXISTS requirement_check (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    requirement_id INTEGER NOT NULL REFERENCES requirement(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    removed_at TEXT
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_requirement_check_active_name
+    ON requirement_check(requirement_id, name)
+    WHERE removed_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS verification_run (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    check_id INTEGER NOT NULL REFERENCES requirement_check(id),
+    result TEXT NOT NULL CHECK (result IN ('passed', 'failed')),
+    run_identifier TEXT NOT NULL CHECK (length(trim(run_identifier)) > 0),
+    engineer_name TEXT NOT NULL CHECK (length(trim(engineer_name)) > 0),
+    recorded_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_verification_run_check
+    ON verification_run(check_id, recorded_at, id);

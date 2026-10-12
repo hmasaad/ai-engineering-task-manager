@@ -1,12 +1,13 @@
 from datetime import datetime, timezone
 
 from task_manager.clock import ScriptedClock
+from task_manager.model import ScriptedModel
 from task_manager.workspace import Workspace
 
 
-def _script(path, clock, project_root):
+def _script(path, clock, project_root, model):
     (project_root / "billing" / "notes").mkdir(parents=True)
-    workspace = Workspace(path, clock, "Ada", "Guide", project_root)
+    workspace = Workspace(path, clock, "Ada", "Guide", project_root, model)
     try:
         created = workspace.create_task("Add export")
         workspace.set_goal(created["id"], "Take the record")
@@ -74,7 +75,17 @@ def _script(path, clock, project_root):
             "notes/label.txt",
             "Export",
         )
-        workspace.record_file_read(reopened["id"], "billing", "notes/label.txt")
+        read = workspace.record_file_read(reopened["id"], "billing", "notes/label.txt")
+        read_id = read["file_reads"][-1]["id"]
+        workspace.record_model_file(
+            reopened["id"],
+            "billing",
+            "ordinary",
+            "Propose the export label",
+            False,
+            "notes/proposed.txt",
+            read_id,
+        )
         return _snapshot(workspace, detail["id"])
     finally:
         workspace.close()
@@ -109,6 +120,8 @@ def _snapshot(workspace, root_id):
                 "assistant_name": item["assistant_name"],
                 "recorded_by": item["recorded_by"],
                 "file": item["file"],
+                "model_name": None if item["model"] is None else item["model"]["name"],
+                "model_output": None if item["model"] is None else item["model"]["output"],
                 "checks": [check["result"] for check in item["checks"]],
             }
             for item in detail["implementation_changes"]
@@ -126,12 +139,61 @@ def _snapshot(workspace, root_id):
     }
 
 
+def _assistant_check_script(path, clock):
+    workspace = Workspace(path, clock, "Ada", "Guide")
+    try:
+        started = workspace.create_task("Add export")
+        workspace.set_goal(started["id"], "Take the record")
+        started = workspace.add_criterion(started["id"], "The export contains the goal")
+        workspace.transition(started["id"], "mark_ready")
+        started = workspace.transition(started["id"], "start")
+        changed = workspace.record_change(started["id"], "Rename the export label", "ordinary")
+        change_id = changed["implementation_changes"][0]["id"]
+        criterion_id = started["criteria"][0]["id"]
+        workspace.record_assistant_check(
+            started["id"],
+            change_id,
+            criterion_id,
+            "The detail page shows the goal in the export",
+            "Passed",
+        )
+        task_id = started["id"]
+        before = workspace.get_task(task_id)
+        opened = workspace.get_task(task_id)
+        check = opened["implementation_changes"][0]["checks"][0]
+        return {
+            "count": len(opened["implementation_changes"][0]["checks"]),
+            "same_count": len(before["implementation_changes"][0]["checks"]),
+            "evidence": check["evidence"],
+            "result": check["result"],
+            "assistant_name": check["assistant_name"],
+            "engineer_name": check["engineer_name"],
+        }
+    finally:
+        workspace.close()
+
+
+def test_an_assistant_check_replays_without_a_second_check(tmp_path):
+    start = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    first = _assistant_check_script(tmp_path / "one.db", ScriptedClock(start=start))
+    second = _assistant_check_script(tmp_path / "two.db", ScriptedClock(start=start))
+    assert first == second
+    assert first["count"] == 1
+    assert first["same_count"] == 1
+    assert first["evidence"] == "The detail page shows the goal in the export"
+    assert first["result"] == "Passed"
+    assert first["assistant_name"] == "Guide"
+    assert first["engineer_name"] == "Ada"
+
+
 def test_same_commands_and_clock_produce_the_same_outcome(tmp_path):
     start = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
     first_root = tmp_path / "one-project"
     second_root = tmp_path / "two-project"
-    first = _script(tmp_path / "one.db", ScriptedClock(start=start), first_root)
-    second = _script(tmp_path / "two.db", ScriptedClock(start=start), second_root)
+    first_model = ScriptedModel("Guide-model", "From the model")
+    second_model = ScriptedModel("Guide-model", "From the model")
+    first = _script(tmp_path / "one.db", ScriptedClock(start=start), first_root, first_model)
+    second = _script(tmp_path / "two.db", ScriptedClock(start=start), second_root, second_model)
     assert first == second
     assert first["status"] == "In Progress"
     assert first["criteria"][0]["state"] == "Verified"
@@ -153,6 +215,13 @@ def test_same_commands_and_clock_produce_the_same_outcome(tmp_path):
     assert filed["file"]["text"] == "Export"
     assert filed["assistant_name"] == "Guide"
     assert filed["outcome"] == "Carried out"
+    modeled = next(item for item in first["changes"] if item["model_name"] is not None)
+    assert modeled["model_name"] == "Guide-model"
+    assert modeled["model_output"] == "From the model"
+    assert (first_root / "billing" / "notes" / "proposed.txt").read_text(encoding="utf-8") == "From the model"
+    assert (second_root / "billing" / "notes" / "proposed.txt").read_text(encoding="utf-8") == "From the model"
+    assert len(first_model.prompts) == 1
+    assert len(second_model.prompts) == 1
     assert (first_root / "billing" / "notes" / "label.txt").read_text(encoding="utf-8") == "Export"
     assert (second_root / "billing" / "notes" / "label.txt").read_text(encoding="utf-8") == "Export"
     assert first["file_reads"] == [

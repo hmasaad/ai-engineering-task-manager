@@ -3,6 +3,14 @@
 {% block body %}
 <h1>{{ task.title }}</h1>
 <p><span class="status">{{ task.status }}</span></p>
+{% if task.requirements %}
+<h2>Requirements</h2>
+<ul>
+  {% for requirement in task.requirements %}
+  <li><a href="/requirements/{{ requirement.id }}">{{ requirement.identifier }}</a> {{ requirement.statement }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
 {% if message %}<p class="message" role="alert">{{ message }}</p>{% endif %}
 {% if task.status == "Cancelled" %}
 <p class="message">Cancelled is final. Continued work is a new task.{% if task.cancel_reason %} Reason: {{ task.cancel_reason }}{% endif %}</p>
@@ -150,6 +158,9 @@
     {% if change.file %}
     <p class="muted">{{ change.file.path }}{% if change.file.was_new %} new{% else %} was {{ change.file.previous_text }}{% endif %} → {{ change.file.text }}</p>
     {% endif %}
+    {% if change.model %}
+    <p class="muted">{{ change.model.name }} returned {{ change.model.output }}</p>
+    {% endif %}
     {% else %}
     <p class="muted">Recorded by {{ change.engineer_name }} at {{ change.recorded_at }}</p>
     {% endif %}
@@ -165,7 +176,11 @@
       <li>
         {{ check.criterion_text }}
         <span class="status">{{ check.result }}</span>
+        {% if check.assistant_name %}
+        <p class="muted">Checked by {{ check.assistant_name }} at {{ check.checked_at }} for {{ check.engineer_name }}: {{ check.evidence }}</p>
+        {% else %}
         <p class="muted">Checked by {{ check.engineer_name }} at {{ check.checked_at }}: {{ check.evidence }}</p>
+        {% endif %}
       </li>
       {% endfor %}
     </ul>
@@ -188,6 +203,25 @@
         <option value="Failed">Failed</option>
       </select>
       <p><button type="submit">Record check</button></p>
+    </form>
+    <form method="post" action="/tasks/{{ task.id }}/assistant-checks">
+      <input id="assistant-check-change-{{ change.id }}" name="change_id" type="hidden" value="{{ change.id }}">
+      <label for="assistant-check-criterion-{{ change.id }}">Acceptance criterion</label>
+      <select id="assistant-check-criterion-{{ change.id }}" name="criterion_id">
+        <option value="">Choose</option>
+        {% for criterion in task.criteria %}
+        <option value="{{ criterion.id }}">{{ criterion.text }}</option>
+        {% endfor %}
+      </select>
+      <label for="assistant-check-evidence-{{ change.id }}">Evidence</label>
+      <textarea id="assistant-check-evidence-{{ change.id }}" name="evidence" rows="2"></textarea>
+      <label for="assistant-check-result-{{ change.id }}">Passed or failed</label>
+      <select id="assistant-check-result-{{ change.id }}" name="result">
+        <option value="">Choose</option>
+        <option value="Passed">Passed</option>
+        <option value="Failed">Failed</option>
+      </select>
+      <p><button type="submit">Record assistant check</button></p>
     </form>
     {% endif %}
     {% if task.status == "In Progress" and change.outcome == "Awaiting approval" %}
@@ -244,6 +278,29 @@
   <label for="read-file">File</label>
   <input id="read-file" name="file" type="text">
   <p><button type="submit">Read a file</button></p>
+</form>
+<form method="post" action="/tasks/{{ task.id }}/model-files">
+  <label for="model-project">Project</label>
+  <input id="model-project" name="project" type="text">
+  <label for="model-class">Ordinary or consequential</label>
+  <select id="model-class" name="class">
+    <option value="">Choose</option>
+    <option value="ordinary">Ordinary</option>
+    <option value="consequential">Consequential</option>
+  </select>
+  <label for="model-what">What changed</label>
+  <textarea id="model-what" name="what_changed" rows="2"></textarea>
+  <label for="model-file">File</label>
+  <input id="model-file" name="file" type="text">
+  <label for="model-file-read">File read</label>
+  <select id="model-file-read" name="file_read_id">
+    <option value="">Choose</option>
+    {% for read in task.file_reads %}
+    <option value="{{ read.id }}">{{ read.path }}</option>
+    {% endfor %}
+  </select>
+  <label><input id="model-stopped" name="stopped" type="checkbox" value="true"> Stop before carrying it out</label>
+  <p><button type="submit">Ask the model</button></p>
 </form>
 {% endif %}
 

@@ -139,6 +139,33 @@ def record_change(
     )
 
 
+@router.post("/tasks/{task_id}/model-files")
+def record_model_file(
+    request: Request,
+    task_id: int,
+    project: str = Form(""),
+    what_changed: str = Form(""),
+    change_class: str = Form("", alias="class"),
+    stopped: str = Form(""),
+    file_path: str = Form("", alias="file"),
+    file_read_id: str = Form(""),
+):
+    chosen = int(file_read_id) if file_read_id.strip().isdigit() else None
+    return _after(
+        request,
+        task_id,
+        _workspace(request).record_model_file(
+            task_id,
+            project,
+            change_class or None,
+            what_changed,
+            stopped == "true",
+            file_path,
+            chosen,
+        ),
+    )
+
+
 @router.post("/tasks/{task_id}/file-reads")
 def record_file_read(
     request: Request,
@@ -207,6 +234,32 @@ def mark_not_carried_out(
     )
 
 
+@router.post("/tasks/{task_id}/assistant-checks")
+def record_assistant_check(
+    request: Request,
+    task_id: int,
+    change_id: str = Form(""),
+    criterion_id: str = Form(""),
+    evidence: str = Form(""),
+    result: str = Form(""),
+):
+    chosen_change = int(change_id) if change_id.strip().isdigit() else None
+    if chosen_change is None:
+        return _after(
+            request,
+            task_id,
+            Refusal(400, "The request is missing a required field or has the wrong shape."),
+        )
+    chosen = int(criterion_id) if criterion_id.strip().isdigit() else None
+    return _after(
+        request,
+        task_id,
+        _workspace(request).record_assistant_check(
+            task_id, chosen_change, chosen, evidence, result or None
+        ),
+    )
+
+
 @router.post("/tasks/{task_id}/implementation-changes/{change_id}/checks")
 def record_check(
     request: Request,
@@ -254,5 +307,146 @@ def add_linked_decision(
         task_id,
         _workspace(request).add_linked_decision(
             task_id, statement, rationale, chosen, supersedes
+        ),
+    )
+
+
+def _form_int(value: str) -> int | None:
+    return int(value) if value.strip().isdigit() else None
+
+
+def _render_requirements(request: Request, message: str | None = None) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "requirements.html",
+        {"requirements": _workspace(request).list_requirements(), "message": message},
+    )
+
+
+def _render_requirement(request: Request, requirement_id: int, message: str | None = None):
+    detail = _workspace(request).get_requirement(requirement_id)
+    if isinstance(detail, Refusal):
+        return HTMLResponse(detail.message, status_code=detail.code)
+    return templates.TemplateResponse(
+        request,
+        "requirement.html",
+        {"requirement": detail, "message": message},
+    )
+
+
+def _after_requirement(request: Request, requirement_id: int, result):
+    if isinstance(result, Refusal):
+        if result.message == "Requirement not found.":
+            return HTMLResponse(result.message, status_code=result.code)
+        return _render_requirement(request, requirement_id, result.message)
+    return RedirectResponse(f"/requirements/{requirement_id}", status_code=303)
+
+
+@router.get("/requirements")
+def requirements_page(request: Request):
+    return _render_requirements(request)
+
+
+@router.post("/requirements")
+def create_requirement(request: Request, statement: str = Form(""), kind: str = Form("")):
+    result = _workspace(request).record_requirement(statement, kind or None)
+    if isinstance(result, Refusal):
+        return _render_requirements(request, result.message)
+    return RedirectResponse(f"/requirements/{result['id']}", status_code=303)
+
+
+@router.get("/requirements/{requirement_id}")
+def requirement_page(request: Request, requirement_id: int):
+    return _render_requirement(request, requirement_id)
+
+
+@router.post("/requirements/{requirement_id}")
+def save_requirement(
+    request: Request,
+    requirement_id: int,
+    statement: str = Form(""),
+    kind: str = Form(""),
+):
+    return _after_requirement(
+        request,
+        requirement_id,
+        _workspace(request).change_requirement(requirement_id, statement, kind or None),
+    )
+
+
+@router.post("/requirements/{requirement_id}/tasks")
+def link_task(request: Request, requirement_id: int, task_id: str = Form("")):
+    return _after_requirement(
+        request,
+        requirement_id,
+        _workspace(request).link_requirement_task(requirement_id, _form_int(task_id)),
+    )
+
+
+@router.post("/requirements/{requirement_id}/criteria")
+def link_criterion_page(
+    request: Request,
+    requirement_id: int,
+    task_id: str = Form(""),
+    criterion_id: str = Form(""),
+):
+    return _after_requirement(
+        request,
+        requirement_id,
+        _workspace(request).link_requirement_criterion(
+            requirement_id, _form_int(task_id), _form_int(criterion_id)
+        ),
+    )
+
+
+@router.post("/requirements/{requirement_id}/tasks/{task_id}/unlink")
+def unlink_task_page(request: Request, requirement_id: int, task_id: int):
+    return _after_requirement(
+        request,
+        requirement_id,
+        _workspace(request).unlink_requirement_task(requirement_id, task_id),
+    )
+
+
+@router.post("/requirements/{requirement_id}/criteria/{criterion_id}/unlink")
+def unlink_criterion_page(request: Request, requirement_id: int, criterion_id: int):
+    return _after_requirement(
+        request,
+        requirement_id,
+        _workspace(request).unlink_requirement_criterion(requirement_id, criterion_id),
+    )
+
+
+@router.post("/requirements/{requirement_id}/checks")
+def name_check_page(request: Request, requirement_id: int, name: str = Form("")):
+    return _after_requirement(
+        request,
+        requirement_id,
+        _workspace(request).name_requirement_check(requirement_id, name),
+    )
+
+
+@router.post("/requirements/{requirement_id}/checks/{check_id}/remove")
+def remove_check_page(request: Request, requirement_id: int, check_id: int):
+    return _after_requirement(
+        request,
+        requirement_id,
+        _workspace(request).remove_requirement_check(requirement_id, check_id),
+    )
+
+
+@router.post("/requirements/{requirement_id}/runs")
+def record_run_page(
+    request: Request,
+    requirement_id: int,
+    check: str = Form(""),
+    result: str = Form(""),
+    run_identifier: str = Form(""),
+):
+    return _after_requirement(
+        request,
+        requirement_id,
+        _workspace(request).record_requirement_run(
+            requirement_id, check, result or None, run_identifier
         ),
     )

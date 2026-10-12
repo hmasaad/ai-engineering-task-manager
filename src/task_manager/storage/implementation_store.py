@@ -22,11 +22,16 @@ SELECT
     f.file_path AS applied_path,
     f.was_new AS applied_was_new,
     f.previous_text AS applied_previous,
-    f.file_text AS applied_text
+    f.file_text AS applied_text,
+    m.model_name AS model_name,
+    m.model_input AS model_input,
+    m.model_output AS model_output,
+    m.file_read_id AS model_file_read_id
 FROM implementation_change AS c
 LEFT JOIN implementation_resolution AS r ON r.change_id = c.id
 LEFT JOIN assistant_change AS a ON a.change_id = c.id
 LEFT JOIN applied_file AS f ON f.change_id = c.id
+LEFT JOIN model_call AS m ON m.change_id = c.id
 """
 
 
@@ -168,6 +173,18 @@ def change_payload(row: sqlite3.Row) -> dict[str, object]:
         "recorded_by": "assistant" if row["assistant_actor"] is not None else "engineer",
         "stopped": row["assistant_stopped"] == 1,
         "file": _file_payload(row),
+        "model": _model_payload(row),
+    }
+
+
+def _model_payload(row: sqlite3.Row) -> dict[str, object] | None:
+    if row["model_name"] is None:
+        return None
+    return {
+        "name": row["model_name"],
+        "input": row["model_input"],
+        "output": row["model_output"],
+        "file_read_id": row["model_file_read_id"],
     }
 
 

@@ -220,6 +220,10 @@ def verify(
         return bad_request("An observation of what was seen is required.")
     if pass_result != "pass":
         return bad_request("An explicit pass result is required.")
+    from task_manager.domain.requirement import criterion_has_unpassed_check
+
+    if criterion_has_unpassed_check(connection, criterion_id):
+        return conflict("A required check has not passed.")
     status_store.write_verification(
         connection,
         criterion_id,

@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-08
 
-**Status**: Draft
+**Status**: Accepted
 
 **Input**: User description: "On an In Progress task, the engineer names an existing project and one text file inside it. The product stores the text it read, the path, the project, and the assistant. It does not call a model and does not change the file. A later replay shows that stored text and does not read the file again."
 

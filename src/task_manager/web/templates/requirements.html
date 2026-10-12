@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Requirements{% endblock %}
+{% block body %}
+<h1>Requirements</h1>
+{% if message %}<p class="message" role="alert">{{ message }}</p>{% endif %}
+{% if requirements %}
+{% set gaps = requirements | selectattr("missing") | list %}
+{% if gaps %}
+<h2>Gaps</h2>
+<ul class="tasks">
+  {% for requirement in gaps %}
+  <li>
+    <a href="/requirements/{{ requirement.id }}">{{ requirement.identifier }}</a>
+    {{ requirement.kind }} — {{ requirement.statement }}
+    <span class="muted">{% for phrase in requirement.missing %}{{ phrase }}{% if not loop.last %}; {% endif %}{% endfor %}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+<h2>All requirements</h2>
+<ul class="tasks">
+  {% for requirement in requirements %}
+  <li><a href="/requirements/{{ requirement.id }}">{{ requirement.identifier }}</a> {{ requirement.statement }}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>No requirements yet.</p>
+{% endif %}
+<h2>New requirement</h2>
+<form method="post" action="/requirements">
+  <label for="statement">Statement</label>
+  <textarea id="statement" name="statement" rows="2"></textarea>
+  <label for="kind">Functional or non-functional</label>
+  <select id="kind" name="kind">
+    <option value="">Choose</option>
+    <option value="functional">Functional</option>
+    <option value="non-functional">Non-functional</option>
+  </select>
+  <p><button type="submit">Record requirement</button></p>
+</form>
+{% endblock %}
