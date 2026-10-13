@@ -18,7 +18,7 @@ def test_complete_names_a_change_that_lacks_a_passing_check(client):
     criterion_id = recorded.json()["criteria"][0]["id"]
     client.post(
         f"/api/tasks/{task_id}/criteria/{criterion_id}/verify",
-        json={"observation": "Seen", "pass_result": "pass"},
+        json={"observation": "Seen", "pass_result": "pass", "method": "inspection", "run_identifier": "local-1"},
     )
     refused = client.post(f"/api/tasks/{task_id}/transitions", json={"action": "complete"})
     assert refused.status_code == 409

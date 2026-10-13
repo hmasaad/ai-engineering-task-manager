@@ -69,8 +69,7 @@ def test_completion_still_requires_a_passing_check(tmp_path, clock):
         )
         criterion_id = recorded["criteria"][0]["id"]
         verified = workspace.verify_criterion(
-            recorded["id"], criterion_id, "The file included the goal.", "pass"
-        )
+            recorded["id"], criterion_id, "The file included the goal.", "pass", "inspection", "local-1")
         refused = workspace.transition(verified["id"], "complete")
         assert isinstance(refused, Refusal)
         assert refused.message == "Needs a passing check: Rename the export label."

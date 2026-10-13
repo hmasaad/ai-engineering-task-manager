@@ -133,6 +133,53 @@ def all_requirements(connection: sqlite3.Connection) -> list[sqlite3.Row]:
     return connection.execute("SELECT * FROM requirement ORDER BY id ASC").fetchall()
 
 
+def trace_payloads(connection: sqlite3.Connection) -> dict[str, object]:
+    tasks = connection.execute(
+        """
+        SELECT task.id, task.title, task.status
+        FROM task
+        WHERE NOT EXISTS (
+            SELECT 1 FROM requirement_task WHERE requirement_task.task_id = task.id
+        )
+        ORDER BY task.id ASC
+        """
+    ).fetchall()
+    criteria = connection.execute(
+        """
+        SELECT acceptance_criterion.id,
+               acceptance_criterion.task_id,
+               acceptance_criterion.text,
+               task.title AS task_title
+        FROM acceptance_criterion
+        JOIN task ON task.id = acceptance_criterion.task_id
+        WHERE NOT (
+            acceptance_criterion.pass_result = 'pass'
+            AND acceptance_criterion.observation IS NOT NULL
+            AND length(trim(acceptance_criterion.observation)) > 0
+            AND acceptance_criterion.verified_at IS NOT NULL
+            AND acceptance_criterion.provider_name IS NOT NULL
+            AND length(trim(acceptance_criterion.provider_name)) > 0
+        )
+        ORDER BY acceptance_criterion.id ASC
+        """
+    ).fetchall()
+    return {
+        "tasks_without_requirement": [
+            {"id": int(row["id"]), "title": row["title"], "status": row["status"]}
+            for row in tasks
+        ],
+        "criteria_without_verification": [
+            {
+                "id": int(row["id"]),
+                "task_id": int(row["task_id"]),
+                "task_title": row["task_title"],
+                "text": row["text"],
+            }
+            for row in criteria
+        ],
+    }
+
+
 def list_payloads(connection: sqlite3.Connection) -> list[dict[str, object]]:
     payloads = []
     for row in all_requirements(connection):

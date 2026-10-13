@@ -63,15 +63,13 @@ def test_a_failed_check_blocks_verification_and_completion(workspace):
     started, requirement, criterion_id = _linked(workspace)
     workspace.name_requirement_check(requirement["id"], "export shows the goal")
     refused = workspace.verify_criterion(
-        started["id"], criterion_id, "The page shows the goal", "pass"
-    )
+        started["id"], criterion_id, "The page shows the goal", "pass", "inspection", "local-1")
     assert isinstance(refused, Refusal)
     assert refused.message == "A required check has not passed."
     assert workspace.get_task(started["id"])["criteria"][0]["state"] == "Unverified"
     workspace.record_requirement_run(requirement["id"], "export shows the goal", "Failed", "local-1")
     refused = workspace.verify_criterion(
-        started["id"], criterion_id, "The page shows the goal", "pass"
-    )
+        started["id"], criterion_id, "The page shows the goal", "pass", "inspection", "local-1")
     assert isinstance(refused, Refusal)
     assert refused.message == "A required check has not passed."
     held = workspace.transition(started["id"], "complete")
@@ -100,8 +98,7 @@ def test_completion_sentence_follows_the_existing_sentences(workspace):
 def test_an_unlinked_criterion_can_still_be_verified(workspace):
     started = _started(workspace)
     verified = workspace.verify_criterion(
-        started["id"], started["criteria"][0]["id"], "The page shows the goal", "pass"
-    )
+        started["id"], started["criteria"][0]["id"], "The page shows the goal", "pass", "inspection", "local-1")
     assert verified["criteria"][0]["state"] == "Verified"
 
 
@@ -114,8 +111,7 @@ def test_removing_a_check_ends_the_hold_and_a_new_name_starts_empty(workspace):
     assert removed["checks"] == []
     assert removed["removed_checks"][0]["runs"][0]["run_identifier"] == "local-1"
     verified = workspace.verify_criterion(
-        started["id"], criterion_id, "The page shows the goal", "pass"
-    )
+        started["id"], criterion_id, "The page shows the goal", "pass", "inspection", "local-1")
     assert verified["criteria"][0]["state"] == "Verified"
     again = workspace.name_requirement_check(requirement["id"], "export shows the goal")
     assert again["checks"][0]["current_result"] is None

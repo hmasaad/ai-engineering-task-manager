@@ -17,14 +17,12 @@ def test_start_verify_and_complete(workspace):
 
     criterion_id = started["criteria"][0]["id"]
     missing_pass = workspace.verify_criterion(
-        started["id"], criterion_id, "The file included the goal.", "no"
-    )
+        started["id"], criterion_id, "The file included the goal.", "no", "inspection", "local-1")
     assert isinstance(missing_pass, Refusal)
     assert workspace.get_task(started["id"])["criteria"][0]["state"] == "Unverified"
 
     verified = workspace.verify_criterion(
-        started["id"], criterion_id, "The file included the goal.", "pass"
-    )
+        started["id"], criterion_id, "The file included the goal.", "pass", "inspection", "local-1")
     criterion = verified["criteria"][0]
     assert criterion["state"] == "Verified"
     assert criterion["provider_name"] == "Ada"
@@ -58,7 +56,7 @@ def test_unverify_clears_evidence_without_status_change(workspace):
     ready = _ready(workspace)
     started = workspace.transition(ready["id"], "start")
     criterion_id = started["criteria"][0]["id"]
-    workspace.verify_criterion(started["id"], criterion_id, "Seen", "pass")
+    workspace.verify_criterion(started["id"], criterion_id, "Seen", "pass", "inspection", "local-1")
     cleared = workspace.unverify_criterion(started["id"], criterion_id)
     criterion = cleared["criteria"][0]
     assert cleared["status"] == "In Progress"
@@ -71,7 +69,7 @@ def test_editing_verified_text_on_completed_task_reopens_it(workspace):
     ready = _ready(workspace)
     started = workspace.transition(ready["id"], "start")
     criterion_id = started["criteria"][0]["id"]
-    workspace.verify_criterion(started["id"], criterion_id, "Seen", "pass")
+    workspace.verify_criterion(started["id"], criterion_id, "Seen", "pass", "inspection", "local-1")
     completed = workspace.transition(started["id"], "complete")
     edited = workspace.update_criterion(completed["id"], criterion_id, "The file contains the status")
     assert edited["status"] == "In Progress"
@@ -88,10 +86,10 @@ def test_reopen_keeps_verification_and_moves_completed_ancestors(workspace):
     child = workspace.transition(child["id"], "mark_ready")
     child = workspace.transition(child["id"], "start")
     child_criterion = child["criteria"][0]["id"]
-    workspace.verify_criterion(child["id"], child_criterion, "Child seen", "pass")
+    workspace.verify_criterion(child["id"], child_criterion, "Child seen", "pass", "inspection", "local-1")
     child = workspace.transition(child["id"], "complete")
     parent_criterion = parent["criteria"][0]["id"]
-    workspace.verify_criterion(parent["id"], parent_criterion, "Parent seen", "pass")
+    workspace.verify_criterion(parent["id"], parent_criterion, "Parent seen", "pass", "inspection", "local-1")
     parent = workspace.transition(parent["id"], "complete")
     assert parent["status"] == "Completed"
 
@@ -133,6 +131,6 @@ def test_cancel_parent_blocked_by_draft_subtask(workspace):
 def test_verify_requires_in_progress(workspace):
     ready = _ready(workspace)
     criterion_id = ready["criteria"][0]["id"]
-    refused = workspace.verify_criterion(ready["id"], criterion_id, "Seen", "pass")
+    refused = workspace.verify_criterion(ready["id"], criterion_id, "Seen", "pass", "inspection", "local-1")
     assert isinstance(refused, Refusal)
     assert workspace.get_task(ready["id"])["criteria"][0]["state"] == "Unverified"

@@ -152,7 +152,7 @@ def test_check_is_refused_unless_the_task_is_in_progress(workspace):
 
     completed = _ordinary(workspace, "Done task")
     criterion_id = completed["criteria"][0]["id"]
-    workspace.verify_criterion(completed["id"], criterion_id, "Seen", "pass")
+    workspace.verify_criterion(completed["id"], criterion_id, "Seen", "pass", "inspection", "local-1")
     change_id = completed["implementation_changes"][0]["id"]
     workspace.record_check(completed["id"], change_id, criterion_id, "Seen", "Passed")
     completed = workspace.transition(completed["id"], "complete")

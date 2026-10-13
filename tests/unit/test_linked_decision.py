@@ -127,8 +127,7 @@ def test_linked_decision_follows_status_and_task_link(workspace):
 
     done_task, done_check = _checked(workspace, title="Done export")
     verified = workspace.verify_criterion(
-        done_task["id"], done_task["criteria"][0]["id"], "The goal is on the page.", "pass"
-    )
+        done_task["id"], done_task["criteria"][0]["id"], "The goal is on the page.", "pass", "inspection", "local-1")
     completed = workspace.transition(verified["id"], "complete")
     linked = workspace.add_linked_decision(
         completed["id"], "Keep the export label", "The check shows the goal is visible", done_check

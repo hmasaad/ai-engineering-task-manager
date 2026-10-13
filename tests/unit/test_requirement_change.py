@@ -8,7 +8,7 @@ def _completed(workspace, title="Add export"):
     workspace.transition(task["id"], "mark_ready")
     task = workspace.transition(task["id"], "start")
     criterion_id = task["criteria"][0]["id"]
-    workspace.verify_criterion(task["id"], criterion_id, "The page shows the goal", "pass")
+    workspace.verify_criterion(task["id"], criterion_id, "The page shows the goal", "pass", "inspection", "local-1")
     completed = workspace.transition(task["id"], "complete")
     return completed, criterion_id
 
@@ -53,10 +53,10 @@ def test_a_statement_change_reopens_the_task_and_its_parent(workspace):
     workspace.transition(child["id"], "mark_ready")
     child = workspace.transition(child["id"], "start")
     child_criterion = child["criteria"][0]["id"]
-    workspace.verify_criterion(child["id"], child_criterion, "The page shows the goal", "pass")
+    workspace.verify_criterion(child["id"], child_criterion, "The page shows the goal", "pass", "inspection", "local-1")
     workspace.transition(child["id"], "complete")
     parent_criterion = parent["criteria"][0]["id"]
-    workspace.verify_criterion(parent["id"], parent_criterion, "The parent page shows it", "pass")
+    workspace.verify_criterion(parent["id"], parent_criterion, "The parent page shows it", "pass", "inspection", "local-1")
     workspace.transition(parent["id"], "complete")
 
     requirement = workspace.record_requirement("The export contains the goal", "functional")

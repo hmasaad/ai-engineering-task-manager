@@ -28,7 +28,7 @@ def test_verify_request_cannot_set_provider(client):
         f"/api/tasks/{task_id}/criteria/{criterion_id}/verify",
         json={
             "observation": "Seen",
-            "pass_result": "pass",
+            "pass_result": "pass", "method": "inspection", "run_identifier": "local-1",
             "provider_name": "Not Ada",
         },
     )

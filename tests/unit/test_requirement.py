@@ -97,7 +97,7 @@ def test_an_unlinked_task_still_completes(workspace):
     started = _started(workspace)
     workspace.record_requirement("The export contains the goal", "functional")
     criterion_id = started["criteria"][0]["id"]
-    workspace.verify_criterion(started["id"], criterion_id, "The page shows the goal", "pass")
+    workspace.verify_criterion(started["id"], criterion_id, "The page shows the goal", "pass", "inspection", "local-1")
     completed = workspace.transition(started["id"], "complete")
     assert completed["status"] == "Completed"
 

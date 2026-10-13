@@ -44,7 +44,7 @@ def test_parent_completion_names_unfinished_subtask(workspace):
     workspace.add_criterion(child["id"], "Child criterion")
     workspace.transition(child["id"], "mark_ready")
     criterion_id = parent["criteria"][0]["id"]
-    workspace.verify_criterion(parent["id"], criterion_id, "Parent seen", "pass")
+    workspace.verify_criterion(parent["id"], criterion_id, "Parent seen", "pass", "inspection", "local-1")
     refused = workspace.transition(parent["id"], "complete")
     assert isinstance(refused, Refusal)
     assert "Still ready" in refused.message
@@ -58,9 +58,9 @@ def test_completed_subtask_does_not_block_parent(workspace):
     workspace.add_criterion(child["id"], "Child criterion")
     child = workspace.transition(child["id"], "mark_ready")
     child = workspace.transition(child["id"], "start")
-    workspace.verify_criterion(child["id"], child["criteria"][0]["id"], "Child seen", "pass")
+    workspace.verify_criterion(child["id"], child["criteria"][0]["id"], "Child seen", "pass", "inspection", "local-1")
     workspace.transition(child["id"], "complete")
-    workspace.verify_criterion(parent["id"], parent["criteria"][0]["id"], "Parent seen", "pass")
+    workspace.verify_criterion(parent["id"], parent["criteria"][0]["id"], "Parent seen", "pass", "inspection", "local-1")
     completed = workspace.transition(parent["id"], "complete")
     assert completed["status"] == "Completed"
 
@@ -76,11 +76,11 @@ def test_unfinished_grandchild_blocks_the_chain(workspace):
     workspace.set_goal(grandchild["id"], "Grandchild goal")
     workspace.add_criterion(grandchild["id"], "Grandchild criterion")
     workspace.transition(grandchild["id"], "mark_ready")
-    workspace.verify_criterion(child["id"], child["criteria"][0]["id"], "Child seen", "pass")
+    workspace.verify_criterion(child["id"], child["criteria"][0]["id"], "Child seen", "pass", "inspection", "local-1")
     refused = workspace.transition(child["id"], "complete")
     assert isinstance(refused, Refusal)
     assert "Grandchild" in refused.message
-    workspace.verify_criterion(parent["id"], parent["criteria"][0]["id"], "Parent seen", "pass")
+    workspace.verify_criterion(parent["id"], parent["criteria"][0]["id"], "Parent seen", "pass", "inspection", "local-1")
     parent_refused = workspace.transition(parent["id"], "complete")
     assert isinstance(parent_refused, Refusal)
     assert workspace.get_task(parent["id"])["status"] == "In Progress"
@@ -88,7 +88,7 @@ def test_unfinished_grandchild_blocks_the_chain(workspace):
 
 def test_completed_parent_refuses_a_new_subtask(workspace):
     parent = _in_progress(workspace, "Parent", "Parent criterion")
-    workspace.verify_criterion(parent["id"], parent["criteria"][0]["id"], "Seen", "pass")
+    workspace.verify_criterion(parent["id"], parent["criteria"][0]["id"], "Seen", "pass", "inspection", "local-1")
     completed = workspace.transition(parent["id"], "complete")
     refused = workspace.add_subtask(completed["id"], "Too late")
     assert isinstance(refused, Refusal)

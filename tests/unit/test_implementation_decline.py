@@ -88,7 +88,7 @@ def test_not_carried_out_does_not_block_cancel_or_complete(workspace):
 
     finished = _started(workspace, "Finished")
     criterion_id = finished["criteria"][0]["id"]
-    workspace.verify_criterion(finished["id"], criterion_id, "Seen", "pass")
+    workspace.verify_criterion(finished["id"], criterion_id, "Seen", "pass", "inspection", "local-1")
     recorded = workspace.record_change(finished["id"], "Drop the old export path", "consequential")
     workspace.mark_change_not_carried_out(
         finished["id"],

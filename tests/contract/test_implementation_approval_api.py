@@ -40,7 +40,7 @@ def test_complete_and_cancel_name_waiting_changes(client):
     task_id, criterion_id = _in_progress(client)
     client.post(
         f"/api/tasks/{task_id}/criteria/{criterion_id}/verify",
-        json={"observation": "Seen", "pass_result": "pass"},
+        json={"observation": "Seen", "pass_result": "pass", "method": "inspection", "run_identifier": "local-1"},
     )
     client.post(
         f"/api/tasks/{task_id}/implementation-changes",

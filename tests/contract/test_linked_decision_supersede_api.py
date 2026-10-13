@@ -87,7 +87,7 @@ def test_completion_does_not_wait_for_a_decision(client):
     criterion_id = client.get(f"/api/tasks/{task_id}").json()["criteria"][0]["id"]
     client.post(
         f"/api/tasks/{task_id}/criteria/{criterion_id}/verify",
-        json={"observation": "The goal is on the page.", "pass_result": "pass"},
+        json={"observation": "The goal is on the page.", "pass_result": "pass", "method": "inspection", "run_identifier": "local-1"},
     )
     completed = client.post(f"/api/tasks/{task_id}/transitions", json={"action": "complete"})
     assert completed.status_code == 200

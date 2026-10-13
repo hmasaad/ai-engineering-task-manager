@@ -45,9 +45,14 @@ def list_top_level(connection: sqlite3.Connection) -> list[dict[str, object]]:
 def criteria_for(connection: sqlite3.Connection, task_id: int) -> list[sqlite3.Row]:
     return connection.execute(
         """
-        SELECT * FROM acceptance_criterion
-        WHERE task_id = ?
-        ORDER BY position ASC, id ASC
+        SELECT acceptance_criterion.*,
+               criterion_evidence.method AS method,
+               criterion_evidence.run_identifier AS run_identifier
+        FROM acceptance_criterion
+        LEFT JOIN criterion_evidence
+          ON criterion_evidence.criterion_id = acceptance_criterion.id
+        WHERE acceptance_criterion.task_id = ?
+        ORDER BY acceptance_criterion.position ASC, acceptance_criterion.id ASC
         """,
         (task_id,),
     ).fetchall()
@@ -94,6 +99,28 @@ def clear_verification(connection: sqlite3.Connection, criterion_id: int) -> Non
         WHERE id = ?
         """,
         (criterion_id,),
+    )
+    connection.execute(
+        "DELETE FROM criterion_evidence WHERE criterion_id = ?",
+        (criterion_id,),
+    )
+
+
+def write_criterion_evidence(
+    connection: sqlite3.Connection,
+    criterion_id: int,
+    method: str,
+    run_identifier: str,
+) -> None:
+    connection.execute(
+        """
+        INSERT INTO criterion_evidence (criterion_id, method, run_identifier)
+        VALUES (?, ?, ?)
+        ON CONFLICT(criterion_id) DO UPDATE SET
+            method = excluded.method,
+            run_identifier = excluded.run_identifier
+        """,
+        (criterion_id, method, run_identifier),
     )
 
 
@@ -147,6 +174,8 @@ def criterion_payload(row: sqlite3.Row) -> dict[str, object]:
         "pass_result": row["pass_result"] if verified else None,
         "verified_at": row["verified_at"] if verified else None,
         "provider_name": row["provider_name"] if verified else None,
+        "method": row["method"] if verified else None,
+        "run_identifier": row["run_identifier"] if verified else None,
     }
 
 

@@ -86,7 +86,7 @@ def test_approve_refusals(workspace):
 def test_completion_and_cancellation_wait_for_approval(workspace):
     started = _started(workspace)
     criterion_id = started["criteria"][0]["id"]
-    workspace.verify_criterion(started["id"], criterion_id, "Seen", "pass")
+    workspace.verify_criterion(started["id"], criterion_id, "Seen", "pass", "inspection", "local-1")
     workspace.record_change(started["id"], "First waiting change", "consequential")
     recorded = workspace.record_change(started["id"], "Second waiting change", "consequential")
     blocked = workspace.transition(recorded["id"], "complete")
@@ -123,7 +123,7 @@ def test_completion_and_cancellation_wait_for_approval(workspace):
 
     carried = _started(workspace, "Carried")
     criterion = carried["criteria"][0]["id"]
-    workspace.verify_criterion(carried["id"], criterion, "Seen", "pass")
+    workspace.verify_criterion(carried["id"], criterion, "Seen", "pass", "inspection", "local-1")
     ordinary = workspace.record_change(carried["id"], "Rename the export label", "ordinary")
     assert "Awaiting approval" not in str(ordinary)
     workspace.record_check(
@@ -138,7 +138,7 @@ def test_completion_and_cancellation_wait_for_approval(workspace):
 
     finished = _started(workspace, "Finished")
     finished_criterion = finished["criteria"][0]["id"]
-    workspace.verify_criterion(finished["id"], finished_criterion, "Seen", "pass")
+    workspace.verify_criterion(finished["id"], finished_criterion, "Seen", "pass", "inspection", "local-1")
     waiting = workspace.record_change(finished["id"], "Replace the stored export name", "consequential")
     change_id = _change_id(waiting, "Replace the stored export name")
     workspace.approve_change(finished["id"], change_id, "The detail page shows the new export name")

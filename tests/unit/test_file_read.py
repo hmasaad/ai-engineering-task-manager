@@ -122,8 +122,7 @@ def test_status_is_refused_before_a_blank_file(tmp_path, clock):
         done = _started(workspace, "Close the export")
         criterion_id = done["criteria"][0]["id"]
         verified = workspace.verify_criterion(
-            done["id"], criterion_id, "The file included the goal.", "pass"
-        )
+            done["id"], criterion_id, "The file included the goal.", "pass", "inspection", "local-1")
         completed = workspace.transition(verified["id"], "complete")
         refused_completed = workspace.record_file_read(completed["id"], "   ", "   ")
         assert isinstance(refused_completed, Refusal)

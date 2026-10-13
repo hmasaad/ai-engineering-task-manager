@@ -29,7 +29,7 @@ from task_manager.storage.connection import (
     ensure_engineer,
 )
 from task_manager.storage.requirement_store import detail as requirement_detail
-from task_manager.storage.requirement_store import list_payloads
+from task_manager.storage.requirement_store import list_payloads, trace_payloads
 from task_manager.storage.task_store import list_top_level, task_detail
 
 
@@ -105,10 +105,19 @@ class Workspace:
         criterion_id: int,
         observation: str,
         pass_result: str,
+        method: str | None = None,
+        run_identifier: str | None = None,
     ):
         return self._run(
             lambda conn, at: capture.verify(
-                conn, task_id, criterion_id, observation, pass_result, at
+                conn,
+                task_id,
+                criterion_id,
+                observation,
+                pass_result,
+                method,
+                run_identifier,
+                at,
             )
         )
 
@@ -435,6 +444,10 @@ class Workspace:
     def list_requirements(self) -> list[dict[str, object]]:
         with self._lock:
             return list_payloads(self.connection)
+
+    def traceability(self) -> dict[str, object]:
+        with self._lock:
+            return trace_payloads(self.connection)
 
     def get_requirement(self, requirement_id: int):
         with self._lock:

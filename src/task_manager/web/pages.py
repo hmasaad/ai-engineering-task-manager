@@ -102,11 +102,15 @@ def verify(
     criterion_id: int,
     observation: str = Form(""),
     pass_result: str = Form(""),
+    method: str = Form(""),
+    run_identifier: str = Form(""),
 ):
     return _after(
         request,
         task_id,
-        _workspace(request).verify_criterion(task_id, criterion_id, observation, pass_result),
+        _workspace(request).verify_criterion(
+            task_id, criterion_id, observation, pass_result, method, run_identifier
+        ),
     )
 
 
@@ -463,7 +467,11 @@ def _render_requirements(request: Request, message: str | None = None) -> HTMLRe
     return templates.TemplateResponse(
         request,
         "requirements.html",
-        {"requirements": _workspace(request).list_requirements(), "message": message},
+        {
+            "requirements": _workspace(request).list_requirements(),
+            "trace": _workspace(request).traceability(),
+            "message": message,
+        },
     )
 
 

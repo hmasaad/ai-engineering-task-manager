@@ -14,7 +14,7 @@ def _started(workspace, criteria):
 def _verify_all(workspace, detail):
     current = detail
     for criterion in list(current["criteria"]):
-        current = workspace.verify_criterion(current["id"], criterion["id"], "Seen", "pass")
+        current = workspace.verify_criterion(current["id"], criterion["id"], "Seen", "pass", "inspection", "local-1")
     return current
 
 

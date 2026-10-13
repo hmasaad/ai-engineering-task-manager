@@ -53,8 +53,7 @@ def _script(path, clock, project_root, model):
         verified = started
         for criterion in started["criteria"]:
             verified = workspace.verify_criterion(
-                verified["id"], criterion["id"], "The file included the goal.", "pass"
-            )
+                verified["id"], criterion["id"], "The file included the goal.", "pass", "inspection", "local-1")
         completed = workspace.transition(verified["id"], "complete")
         reopened = workspace.transition(completed["id"], "reopen", "A missed case was found")
         workspace.add_subtask(reopened["id"], "Write the checklist")

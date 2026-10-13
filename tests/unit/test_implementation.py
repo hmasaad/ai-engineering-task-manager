@@ -78,7 +78,7 @@ def test_record_is_refused_unless_the_task_is_in_progress(workspace):
 
     completed = _started(workspace, "Done task")
     criterion_id = completed["criteria"][0]["id"]
-    workspace.verify_criterion(completed["id"], criterion_id, "Seen", "pass")
+    workspace.verify_criterion(completed["id"], criterion_id, "Seen", "pass", "inspection", "local-1")
     completed = workspace.transition(completed["id"], "complete")
     refused = workspace.record_change(completed["id"], "Rename the export label", "ordinary")
     assert refused.message == "Reopen the task first."

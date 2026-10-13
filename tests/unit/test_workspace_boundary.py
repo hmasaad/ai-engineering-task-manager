@@ -23,8 +23,7 @@ def test_two_workspaces_stay_separate_and_a_restart_keeps_the_evidence(tmp_path,
     try:
         started, criterion_id = _started(workspace_a, "Record the label")
         verified = workspace_a.verify_criterion(
-            started["id"], criterion_id, "The label text was read.", "pass"
-        )
+            started["id"], criterion_id, "The label text was read.", "pass", "inspection", "local-1")
         decided = workspace_a.add_decision(
             started["id"], "Keep the recorded label", "The label was read."
         )
@@ -105,7 +104,7 @@ def test_task_records_leave_the_repository_unchanged(tmp_path, clock, monkeypatc
     other = Workspace(tmp_path / "b.db", clock, "Bea", "Guide", root)
     try:
         started, criterion_id = _started(workspace, "Record the label")
-        workspace.verify_criterion(started["id"], criterion_id, "The label text was read.", "pass")
+        workspace.verify_criterion(started["id"], criterion_id, "The label text was read.", "pass", "inspection", "local-1")
         workspace.record_change(started["id"], "Noted the label", "ordinary", project="billing")
         workspace.record_assistant_change(started["id"], "billing", "ordinary", "Described the label", False)
         workspace.add_decision(started["id"], "Keep the recorded label", "The label was read.")

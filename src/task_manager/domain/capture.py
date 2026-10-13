@@ -203,6 +203,8 @@ def verify(
     criterion_id: int,
     observation: str,
     pass_result: str,
+    method: str | None,
+    run_identifier: str | None,
     occurred_at: str,
 ):
     task = task_store.row_task(connection, task_id)
@@ -224,6 +226,12 @@ def verify(
 
     if criterion_has_unpassed_check(connection, criterion_id):
         return conflict("A required check has not passed.")
+    named_method = clean(method)
+    if not named_method:
+        return bad_request("A verification method is required.")
+    named_run = clean(run_identifier)
+    if not named_run:
+        return bad_request("A test-run identifier is required.")
     status_store.write_verification(
         connection,
         criterion_id,
@@ -231,6 +239,7 @@ def verify(
         occurred_at,
         engineer_name(connection),
     )
+    task_store.write_criterion_evidence(connection, criterion_id, named_method, named_run)
     return _detail(connection, task_id)
 
 

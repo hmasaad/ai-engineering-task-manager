@@ -270,3 +270,9 @@ CREATE TABLE IF NOT EXISTS verification_run (
 
 CREATE INDEX IF NOT EXISTS idx_verification_run_check
     ON verification_run(check_id, recorded_at, id);
+
+CREATE TABLE IF NOT EXISTS criterion_evidence (
+    criterion_id INTEGER PRIMARY KEY REFERENCES acceptance_criterion(id) ON DELETE CASCADE,
+    method TEXT NOT NULL CHECK (length(trim(method)) > 0),
+    run_identifier TEXT NOT NULL CHECK (length(trim(run_identifier)) > 0)
+);

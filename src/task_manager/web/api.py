@@ -34,6 +34,8 @@ class VerifyIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
     observation: str
     pass_result: str
+    method: str = ""
+    run_identifier: str = ""
 
 
 class SubtaskIn(BaseModel):
@@ -219,7 +221,12 @@ def transition(request: Request, task_id: int, body: TransitionIn):
 def verify(request: Request, task_id: int, criterion_id: int, body: VerifyIn):
     return _respond(
         request.app.state.workspace.verify_criterion(
-            task_id, criterion_id, body.observation, body.pass_result
+            task_id,
+            criterion_id,
+            body.observation,
+            body.pass_result,
+            body.method,
+            body.run_identifier,
         )
     )
 
@@ -443,6 +450,11 @@ class RequirementRunIn(BaseModel):
     check: str
     result: str | None = None
     run_identifier: str = ""
+
+
+@router.get("/traceability")
+def traceability(request: Request):
+    return request.app.state.workspace.traceability()
 
 
 @router.get("/requirements")

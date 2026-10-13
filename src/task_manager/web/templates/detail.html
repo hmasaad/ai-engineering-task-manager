@@ -32,6 +32,9 @@
   <p><strong>{{ criterion.text }}</strong> <span class="status">{{ criterion.state }}</span></p>
   {% if criterion.state == "Verified" %}
   <p class="muted">Observed by {{ criterion.provider_name }} at {{ criterion.verified_at }}: {{ criterion.observation }}</p>
+  {% if criterion.method and criterion.run_identifier %}
+  <p class="muted">{{ criterion.method }}, run {{ criterion.run_identifier }}</p>
+  {% endif %}
   {% endif %}
   {% if task.status != "Cancelled" %}
   <form method="post" action="/tasks/{{ task.id }}/criteria/{{ criterion.id }}/edit">
@@ -47,6 +50,10 @@
   <form method="post" action="/tasks/{{ task.id }}/criteria/{{ criterion.id }}/verify">
     <label for="observation-{{ criterion.id }}">What was observed</label>
     <textarea id="observation-{{ criterion.id }}" name="observation" rows="2"></textarea>
+    <label for="method-{{ criterion.id }}">Verification method</label>
+    <input id="method-{{ criterion.id }}" name="method" type="text">
+    <label for="run-{{ criterion.id }}">Test-run identifier</label>
+    <input id="run-{{ criterion.id }}" name="run_identifier" type="text">
     <label><input type="checkbox" name="pass_result" value="pass"> This criterion passed</label>
     <p><button type="submit">Verify criterion</button></p>
   </form>

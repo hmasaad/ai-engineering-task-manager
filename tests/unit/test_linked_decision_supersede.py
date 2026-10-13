@@ -109,8 +109,7 @@ def test_unlinked_decision_ignores_a_check_and_stays_off_the_parent(workspace):
 
     ready = _checked(workspace, "Finish")
     verified = workspace.verify_criterion(
-        ready[0]["id"], ready[0]["criteria"][0]["id"], "The goal is on the page.", "pass"
-    )
+        ready[0]["id"], ready[0]["criteria"][0]["id"], "The goal is on the page.", "pass", "inspection", "local-1")
     completed = workspace.transition(verified["id"], "complete")
     assert not isinstance(completed, Refusal)
     assert completed["status"] == "Completed"

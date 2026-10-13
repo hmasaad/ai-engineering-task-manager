@@ -10,7 +10,7 @@ def test_add_subtask_and_block_parent_completion(client):
     criterion_id = parent["criteria"][0]["id"]
     client.post(
         f"/api/tasks/{parent_id}/criteria/{criterion_id}/verify",
-        json={"observation": "Seen", "pass_result": "pass"},
+        json={"observation": "Seen", "pass_result": "pass", "method": "inspection", "run_identifier": "local-1"},
     )
 
     created = client.post("/api/tasks/{0}/subtasks".format(parent_id), json={"title": "Child"})

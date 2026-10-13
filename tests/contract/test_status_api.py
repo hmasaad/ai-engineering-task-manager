@@ -16,7 +16,7 @@ def test_verify_uses_workspace_engineer_not_request_body(client):
         f"/api/tasks/{task_id}/criteria/{criterion_id}/verify",
         json={
             "observation": "The file included the goal.",
-            "pass_result": "pass",
+            "pass_result": "pass", "method": "inspection", "run_identifier": "local-1",
             "provider_name": "Someone Else",
         },
     )
@@ -35,7 +35,7 @@ def test_complete_reopen_and_cancel_contract(client):
     client.post(f"/api/tasks/{task_id}/transitions", json={"action": "start"})
     client.post(
         f"/api/tasks/{task_id}/criteria/{criterion_id}/verify",
-        json={"observation": "Seen", "pass_result": "pass"},
+        json={"observation": "Seen", "pass_result": "pass", "method": "inspection", "run_identifier": "local-1"},
     )
     completed = client.post(f"/api/tasks/{task_id}/transitions", json={"action": "complete"})
     assert completed.status_code == 200

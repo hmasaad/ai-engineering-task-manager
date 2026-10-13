@@ -87,7 +87,7 @@ def test_status_is_refused_before_the_change(workspace):
     )
     plain = _started(workspace, "Plain")
     plain_criterion = plain["criteria"][0]["id"]
-    workspace.verify_criterion(plain["id"], plain_criterion, "The page shows the goal", "pass")
+    workspace.verify_criterion(plain["id"], plain_criterion, "The page shows the goal", "pass", "inspection", "local-1")
     completed = workspace.transition(plain["id"], "complete")
     assert workspace.record_assistant_check(
         completed["id"], 1, plain_criterion, "Seen", "Passed"
@@ -154,7 +154,7 @@ def test_the_command_does_not_call_a_model_or_open_a_project(tmp_path, clock):
 
 def test_a_failed_check_blocks_completion_until_a_later_pass(workspace):
     started, change_id, criterion_id = _carried(workspace)
-    workspace.verify_criterion(started["id"], criterion_id, "The page shows the goal", "pass")
+    workspace.verify_criterion(started["id"], criterion_id, "The page shows the goal", "pass", "inspection", "local-1")
     failed = workspace.record_assistant_check(
         started["id"], change_id, criterion_id, "The label was still old", "Failed"
     )

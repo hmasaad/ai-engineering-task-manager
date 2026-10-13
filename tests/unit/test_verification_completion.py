@@ -13,7 +13,7 @@ def _started(workspace, title="Add export", criteria=("The file contains the goa
 def _verify_all(workspace, detail):
     current = detail
     for criterion in current["criteria"]:
-        current = workspace.verify_criterion(current["id"], criterion["id"], "Seen", "pass")
+        current = workspace.verify_criterion(current["id"], criterion["id"], "Seen", "pass", "inspection", "local-1")
     return current
 
 

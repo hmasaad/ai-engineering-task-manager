@@ -3,6 +3,22 @@
 {% block body %}
 <h1>Requirements</h1>
 {% if message %}<p class="message" role="alert">{{ message }}</p>{% endif %}
+{% if trace.tasks_without_requirement %}
+<h2>Tasks without a requirement</h2>
+<ul class="tasks" id="tasks-without-requirement">
+  {% for task in trace.tasks_without_requirement %}
+  <li><a href="/tasks/{{ task.id }}">{{ task.title }}</a> <span class="status">{{ task.status }}</span></li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if trace.criteria_without_verification %}
+<h2>Criteria without verification</h2>
+<ul class="tasks" id="criteria-without-verification">
+  {% for criterion in trace.criteria_without_verification %}
+  <li><a href="/tasks/{{ criterion.task_id }}">{{ criterion.task_title }}</a> — {{ criterion.text }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
 {% if requirements %}
 {% set gaps = requirements | selectattr("missing") | list %}
 {% if gaps %}

@@ -72,7 +72,7 @@ def test_name_a_check_and_record_a_run(client):
     assert removed.json()["removed_checks"][0]["runs"][0]["run_identifier"] == "local-1"
     held = client.post(
         f"/api/tasks/{task_id}/criteria/{criterion_id}/verify",
-        json={"observation": "The page shows the goal", "pass_result": "pass"},
+        json={"observation": "The page shows the goal", "pass_result": "pass", "method": "inspection", "run_identifier": "local-1"},
     )
     assert held.status_code == 200
 
@@ -89,7 +89,7 @@ def test_a_failed_run_refuses_verification(client):
     )
     refused = client.post(
         f"/api/tasks/{task_id}/criteria/{criterion_id}/verify",
-        json={"observation": "The page shows the goal", "pass_result": "pass"},
+        json={"observation": "The page shows the goal", "pass_result": "pass", "method": "inspection", "run_identifier": "local-1"},
     )
     assert refused.status_code == 409
     assert refused.json()["message"] == "A required check has not passed."
