@@ -254,6 +254,54 @@ def record_test(
     )
 
 
+@router.post("/tasks/{task_id}/pull-requests")
+def record_pull_request(
+    request: Request,
+    task_id: int,
+    project: str = Form(""),
+    what_changed: str = Form(""),
+    change_class: str = Form("", alias="class"),
+    stopped: str = Form(""),
+    branch: str = Form(""),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).record_pull_request(
+            task_id,
+            project,
+            change_class or None,
+            what_changed,
+            stopped == "true",
+            branch,
+        ),
+    )
+
+
+@router.post("/tasks/{task_id}/commits")
+def record_commit(
+    request: Request,
+    task_id: int,
+    project: str = Form(""),
+    what_changed: str = Form(""),
+    change_class: str = Form("", alias="class"),
+    stopped: str = Form(""),
+    file_path: str = Form("", alias="file"),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).record_commit(
+            task_id,
+            project,
+            change_class or None,
+            what_changed,
+            stopped == "true",
+            file_path,
+        ),
+    )
+
+
 @router.post("/tasks/{task_id}/deletes")
 def record_deletion(
     request: Request,

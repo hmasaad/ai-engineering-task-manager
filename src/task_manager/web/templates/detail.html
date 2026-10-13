@@ -169,6 +169,13 @@
     <p class="muted">Delete {{ change.deleted_file.path }}</p>
     <p class="muted">{{ change.deleted_file.text }}</p>
     {% endif %}
+    {% if change.commit %}
+    <p class="muted">Commit {{ change.commit.path }}{% if change.commit.hash %} {{ change.commit.hash }}{% endif %}</p>
+    <p class="muted">{{ change.commit.text }}</p>
+    {% endif %}
+    {% if change.pull_request %}
+    <p class="muted">Pull request {{ change.pull_request.branch }} into {{ change.pull_request.base }}{% if change.pull_request.url %} {{ change.pull_request.url }}{% endif %}</p>
+    {% endif %}
     {% if change.model %}
     <p class="muted">{{ change.model.name }} returned {{ change.model.output }}</p>
     {% endif %}
@@ -330,6 +337,38 @@
   <input id="delete-file" name="file" type="text">
   <label><input id="delete-stopped" name="stopped" type="checkbox" value="true"> Stop before carrying it out</label>
   <p><button type="submit">Delete file</button></p>
+</form>
+<form method="post" action="/tasks/{{ task.id }}/commits">
+  <label for="commit-project">Project</label>
+  <input id="commit-project" name="project" type="text">
+  <label for="commit-class">Ordinary or consequential</label>
+  <select id="commit-class" name="class">
+    <option value="">Choose</option>
+    <option value="ordinary">Ordinary</option>
+    <option value="consequential">Consequential</option>
+  </select>
+  <label for="commit-what">What changed</label>
+  <textarea id="commit-what" name="what_changed" rows="2"></textarea>
+  <label for="commit-file">File</label>
+  <input id="commit-file" name="file" type="text">
+  <label><input id="commit-stopped" name="stopped" type="checkbox" value="true"> Stop before carrying it out</label>
+  <p><button type="submit">Commit file</button></p>
+</form>
+<form method="post" action="/tasks/{{ task.id }}/pull-requests">
+  <label for="pr-project">Project</label>
+  <input id="pr-project" name="project" type="text">
+  <label for="pr-class">Ordinary or consequential</label>
+  <select id="pr-class" name="class">
+    <option value="">Choose</option>
+    <option value="ordinary">Ordinary</option>
+    <option value="consequential">Consequential</option>
+  </select>
+  <label for="pr-what">What changed</label>
+  <textarea id="pr-what" name="what_changed" rows="2"></textarea>
+  <label for="pr-branch">Branch</label>
+  <input id="pr-branch" name="branch" type="text">
+  <label><input id="pr-stopped" name="stopped" type="checkbox" value="true"> Stop before carrying it out</label>
+  <p><button type="submit">Open pull request</button></p>
 </form>
 <form method="post" action="/tasks/{{ task.id }}/file-reads">
   <label for="read-project">Project</label>

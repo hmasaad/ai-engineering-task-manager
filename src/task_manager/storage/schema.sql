@@ -170,6 +170,28 @@ CREATE TABLE IF NOT EXISTS deleted_file (
     previous_text TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS committed_file (
+    change_id INTEGER PRIMARY KEY REFERENCES implementation_change(id),
+    file_path TEXT NOT NULL CHECK (length(trim(file_path)) > 0),
+    file_text TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS committed_revision (
+    change_id INTEGER PRIMARY KEY REFERENCES committed_file(change_id),
+    commit_hash TEXT NOT NULL CHECK (length(trim(commit_hash)) > 0)
+);
+
+CREATE TABLE IF NOT EXISTS pull_request (
+    change_id INTEGER PRIMARY KEY REFERENCES implementation_change(id),
+    branch TEXT NOT NULL CHECK (length(trim(branch)) > 0),
+    base_branch TEXT NOT NULL CHECK (length(trim(base_branch)) > 0)
+);
+
+CREATE TABLE IF NOT EXISTS pull_request_result (
+    change_id INTEGER PRIMARY KEY REFERENCES pull_request(change_id),
+    pull_url TEXT NOT NULL CHECK (length(trim(pull_url)) > 0)
+);
+
 CREATE TABLE IF NOT EXISTS decision_check (
     decision_id INTEGER PRIMARY KEY REFERENCES implementation_decision(id),
     check_id INTEGER NOT NULL REFERENCES implementation_check(id)

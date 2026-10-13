@@ -6,12 +6,14 @@ from pathlib import Path
 from task_manager.clock import ScriptedClock, SystemClock, format_time
 from task_manager.domain import (
     capture,
+    commit_file,
     decisions,
     delete_file,
     file_read,
     folder,
     implementation,
     model_file,
+    pull_request,
     requirement,
     status,
     subtasks,
@@ -267,6 +269,54 @@ class Workspace:
                 what_changed,
                 stopped,
                 file_path,
+                at,
+                root,
+            )
+        )
+
+    def record_commit(
+        self,
+        task_id: int,
+        project: str | None,
+        change_class: str | None,
+        what_changed: str | None,
+        stopped: bool,
+        file_path: str | None,
+    ):
+        root = self.project_root
+        return self._run(
+            lambda conn, at: commit_file.record(
+                conn,
+                task_id,
+                project,
+                change_class,
+                what_changed,
+                stopped,
+                file_path,
+                at,
+                root,
+            )
+        )
+
+    def record_pull_request(
+        self,
+        task_id: int,
+        project: str | None,
+        change_class: str | None,
+        what_changed: str | None,
+        stopped: bool,
+        branch: str | None,
+    ):
+        root = self.project_root
+        return self._run(
+            lambda conn, at: pull_request.record(
+                conn,
+                task_id,
+                project,
+                change_class,
+                what_changed,
+                stopped,
+                branch,
                 at,
                 root,
             )

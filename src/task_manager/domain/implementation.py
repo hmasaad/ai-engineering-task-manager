@@ -219,6 +219,34 @@ def approve(
         )
         if removed is not None:
             return removed
+    pending_commit = implementation_store.row_committed_file(connection, int(change["id"]))
+    if pending_commit is not None and pending_commit["commit_hash"] is None:
+        from task_manager.domain.commit_file import commit_approved
+
+        made = commit_approved(
+            change["assistant_project"],
+            str(pending_commit["file_path"]),
+            str(pending_commit["file_text"]),
+            str(change["what_changed"]),
+            project_root or Path.cwd(),
+        )
+        if not isinstance(made, str):
+            return made
+        implementation_store.insert_committed_revision(connection, int(change["id"]), made)
+    pending_pull = implementation_store.row_pull_request(connection, int(change["id"]))
+    if pending_pull is not None and pending_pull["pull_url"] is None:
+        from task_manager.domain.pull_request import open_approved
+
+        opened = open_approved(
+            change["assistant_project"],
+            str(pending_pull["branch"]),
+            str(pending_pull["base_branch"]),
+            str(change["what_changed"]),
+            project_root or Path.cwd(),
+        )
+        if not isinstance(opened, str):
+            return opened
+        implementation_store.insert_pull_request_result(connection, int(change["id"]), opened)
     implementation_store.insert_resolution(
         connection,
         int(change["id"]),

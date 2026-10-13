@@ -29,6 +29,12 @@ SELECT
     ts.output AS test_output,
     df.file_path AS deleted_file_path,
     df.previous_text AS deleted_previous_text,
+    cf.file_path AS committed_file_path,
+    cf.file_text AS committed_file_text,
+    cr.commit_hash AS committed_hash,
+    pr.branch AS pull_branch,
+    pr.base_branch AS pull_base,
+    ps.pull_url AS pull_url,
     m.model_name AS model_name,
     m.model_input AS model_input,
     m.model_output AS model_output,
@@ -41,6 +47,10 @@ LEFT JOIN created_folder AS d ON d.change_id = c.id
 LEFT JOIN test_run AS tr ON tr.change_id = c.id
 LEFT JOIN test_run_result AS ts ON ts.change_id = c.id
 LEFT JOIN deleted_file AS df ON df.change_id = c.id
+LEFT JOIN committed_file AS cf ON cf.change_id = c.id
+LEFT JOIN committed_revision AS cr ON cr.change_id = c.id
+LEFT JOIN pull_request AS pr ON pr.change_id = c.id
+LEFT JOIN pull_request_result AS ps ON ps.change_id = c.id
 LEFT JOIN model_call AS m ON m.change_id = c.id
 """
 
@@ -184,6 +194,80 @@ def row_deleted_file(connection: sqlite3.Connection, change_id: int) -> sqlite3.
     ).fetchone()
 
 
+def insert_committed_file(
+    connection: sqlite3.Connection,
+    change_id: int,
+    file_path: str,
+    file_text: str,
+) -> None:
+    connection.execute(
+        """
+        INSERT INTO committed_file (change_id, file_path, file_text)
+        VALUES (?, ?, ?)
+        """,
+        (change_id, file_path, file_text),
+    )
+
+
+def insert_committed_revision(connection: sqlite3.Connection, change_id: int, commit_hash: str) -> None:
+    connection.execute(
+        """
+        INSERT INTO committed_revision (change_id, commit_hash)
+        VALUES (?, ?)
+        """,
+        (change_id, commit_hash),
+    )
+
+
+def row_committed_file(connection: sqlite3.Connection, change_id: int) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT cf.file_path AS file_path, cf.file_text AS file_text, cr.commit_hash AS commit_hash
+        FROM committed_file AS cf
+        LEFT JOIN committed_revision AS cr ON cr.change_id = cf.change_id
+        WHERE cf.change_id = ?
+        """,
+        (change_id,),
+    ).fetchone()
+
+
+def insert_pull_request(
+    connection: sqlite3.Connection,
+    change_id: int,
+    branch: str,
+    base_branch: str,
+) -> None:
+    connection.execute(
+        """
+        INSERT INTO pull_request (change_id, branch, base_branch)
+        VALUES (?, ?, ?)
+        """,
+        (change_id, branch, base_branch),
+    )
+
+
+def insert_pull_request_result(connection: sqlite3.Connection, change_id: int, pull_url: str) -> None:
+    connection.execute(
+        """
+        INSERT INTO pull_request_result (change_id, pull_url)
+        VALUES (?, ?)
+        """,
+        (change_id, pull_url),
+    )
+
+
+def row_pull_request(connection: sqlite3.Connection, change_id: int) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT pr.branch AS branch, pr.base_branch AS base_branch, ps.pull_url AS pull_url
+        FROM pull_request AS pr
+        LEFT JOIN pull_request_result AS ps ON ps.change_id = pr.change_id
+        WHERE pr.change_id = ?
+        """,
+        (change_id,),
+    ).fetchone()
+
+
 def row_test_run(connection: sqlite3.Connection, change_id: int) -> sqlite3.Row | None:
     return connection.execute(
         """
@@ -262,7 +346,29 @@ def change_payload(row: sqlite3.Row) -> dict[str, object]:
         "folder": None if row["created_folder_path"] is None else {"path": row["created_folder_path"]},
         "test": _test_payload(row),
         "deleted_file": _deleted_payload(row),
+        "commit": _commit_payload(row),
+        "pull_request": _pull_payload(row),
         "model": _model_payload(row),
+    }
+
+
+def _commit_payload(row: sqlite3.Row) -> dict[str, object] | None:
+    if row["committed_file_path"] is None:
+        return None
+    return {
+        "path": row["committed_file_path"],
+        "text": row["committed_file_text"],
+        "hash": row["committed_hash"],
+    }
+
+
+def _pull_payload(row: sqlite3.Row) -> dict[str, object] | None:
+    if row["pull_branch"] is None:
+        return None
+    return {
+        "branch": row["pull_branch"],
+        "base": row["pull_base"],
+        "url": row["pull_url"],
     }
 
 
