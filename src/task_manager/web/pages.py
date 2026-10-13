@@ -278,6 +278,30 @@ def record_pull_request(
     )
 
 
+@router.post("/tasks/{task_id}/branches")
+def record_branch(
+    request: Request,
+    task_id: int,
+    project: str = Form(""),
+    what_changed: str = Form(""),
+    change_class: str = Form("", alias="class"),
+    stopped: str = Form(""),
+    branch_name: str = Form("", alias="branch"),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).record_branch(
+            task_id,
+            project,
+            change_class or None,
+            what_changed,
+            stopped == "true",
+            branch_name,
+        ),
+    )
+
+
 @router.post("/tasks/{task_id}/commits")
 def record_commit(
     request: Request,

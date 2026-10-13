@@ -169,6 +169,9 @@
     <p class="muted">Delete {{ change.deleted_file.path }}</p>
     <p class="muted">{{ change.deleted_file.text }}</p>
     {% endif %}
+    {% if change.created_branch %}
+    <p class="muted">Branch {{ change.created_branch.name }} from {{ change.created_branch.commit }}</p>
+    {% endif %}
     {% if change.commit %}
     <p class="muted">Commit {{ change.commit.path }}{% if change.commit.hash %} {{ change.commit.hash }}{% endif %}</p>
     <p class="muted">{{ change.commit.text }}</p>
@@ -337,6 +340,22 @@
   <input id="delete-file" name="file" type="text">
   <label><input id="delete-stopped" name="stopped" type="checkbox" value="true"> Stop before carrying it out</label>
   <p><button type="submit">Delete file</button></p>
+</form>
+<form method="post" action="/tasks/{{ task.id }}/branches">
+  <label for="branch-project">Project</label>
+  <input id="branch-project" name="project" type="text">
+  <label for="branch-class">Ordinary or consequential</label>
+  <select id="branch-class" name="class">
+    <option value="">Choose</option>
+    <option value="ordinary">Ordinary</option>
+    <option value="consequential">Consequential</option>
+  </select>
+  <label for="branch-what">What changed</label>
+  <textarea id="branch-what" name="what_changed" rows="2"></textarea>
+  <label for="branch-name">Branch</label>
+  <input id="branch-name" name="branch" type="text">
+  <label><input id="branch-stopped" name="stopped" type="checkbox" value="true"> Stop before carrying it out</label>
+  <p><button type="submit">Create branch</button></p>
 </form>
 <form method="post" action="/tasks/{{ task.id }}/commits">
   <label for="commit-project">Project</label>

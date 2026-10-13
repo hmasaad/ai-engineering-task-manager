@@ -5,6 +5,7 @@ from pathlib import Path
 
 from task_manager.clock import ScriptedClock, SystemClock, format_time
 from task_manager.domain import (
+    branch,
     capture,
     commit_file,
     decisions,
@@ -269,6 +270,30 @@ class Workspace:
                 what_changed,
                 stopped,
                 file_path,
+                at,
+                root,
+            )
+        )
+
+    def record_branch(
+        self,
+        task_id: int,
+        project: str | None,
+        change_class: str | None,
+        what_changed: str | None,
+        stopped: bool,
+        branch_name: str | None,
+    ):
+        root = self.project_root
+        return self._run(
+            lambda conn, at: branch.record(
+                conn,
+                task_id,
+                project,
+                change_class,
+                what_changed,
+                stopped,
+                branch_name,
                 at,
                 root,
             )

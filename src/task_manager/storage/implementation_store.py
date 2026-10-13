@@ -35,6 +35,9 @@ SELECT
     pr.branch AS pull_branch,
     pr.base_branch AS pull_base,
     ps.pull_url AS pull_url,
+    cb.branch AS created_branch_name,
+    cb.start_commit AS created_branch_commit,
+    co.change_id AS created_branch_checked_out,
     m.model_name AS model_name,
     m.model_input AS model_input,
     m.model_output AS model_output,
@@ -51,6 +54,8 @@ LEFT JOIN committed_file AS cf ON cf.change_id = c.id
 LEFT JOIN committed_revision AS cr ON cr.change_id = c.id
 LEFT JOIN pull_request AS pr ON pr.change_id = c.id
 LEFT JOIN pull_request_result AS ps ON ps.change_id = c.id
+LEFT JOIN created_branch AS cb ON cb.change_id = c.id
+LEFT JOIN created_branch_checkout AS co ON co.change_id = c.id
 LEFT JOIN model_call AS m ON m.change_id = c.id
 """
 
@@ -256,6 +261,40 @@ def insert_pull_request_result(connection: sqlite3.Connection, change_id: int, p
     )
 
 
+def insert_created_branch(
+    connection: sqlite3.Connection,
+    change_id: int,
+    branch: str,
+    start_commit: str,
+) -> None:
+    connection.execute(
+        """
+        INSERT INTO created_branch (change_id, branch, start_commit)
+        VALUES (?, ?, ?)
+        """,
+        (change_id, branch, start_commit),
+    )
+
+
+def insert_created_branch_checkout(connection: sqlite3.Connection, change_id: int) -> None:
+    connection.execute(
+        "INSERT INTO created_branch_checkout (change_id) VALUES (?)",
+        (change_id,),
+    )
+
+
+def row_created_branch(connection: sqlite3.Connection, change_id: int) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT cb.branch AS branch, cb.start_commit AS start_commit, co.change_id AS checked_out
+        FROM created_branch AS cb
+        LEFT JOIN created_branch_checkout AS co ON co.change_id = cb.change_id
+        WHERE cb.change_id = ?
+        """,
+        (change_id,),
+    ).fetchone()
+
+
 def row_pull_request(connection: sqlite3.Connection, change_id: int) -> sqlite3.Row | None:
     return connection.execute(
         """
@@ -348,6 +387,7 @@ def change_payload(row: sqlite3.Row) -> dict[str, object]:
         "deleted_file": _deleted_payload(row),
         "commit": _commit_payload(row),
         "pull_request": _pull_payload(row),
+        "created_branch": _created_branch_payload(row),
         "model": _model_payload(row),
     }
 
@@ -359,6 +399,16 @@ def _commit_payload(row: sqlite3.Row) -> dict[str, object] | None:
         "path": row["committed_file_path"],
         "text": row["committed_file_text"],
         "hash": row["committed_hash"],
+    }
+
+
+def _created_branch_payload(row: sqlite3.Row) -> dict[str, object] | None:
+    if row["created_branch_name"] is None:
+        return None
+    return {
+        "name": row["created_branch_name"],
+        "commit": row["created_branch_commit"],
+        "checked_out": row["created_branch_checked_out"] is not None,
     }
 
 

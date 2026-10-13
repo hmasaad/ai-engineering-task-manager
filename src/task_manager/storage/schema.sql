@@ -192,6 +192,16 @@ CREATE TABLE IF NOT EXISTS pull_request_result (
     pull_url TEXT NOT NULL CHECK (length(trim(pull_url)) > 0)
 );
 
+CREATE TABLE IF NOT EXISTS created_branch (
+    change_id INTEGER PRIMARY KEY REFERENCES implementation_change(id),
+    branch TEXT NOT NULL CHECK (length(trim(branch)) > 0),
+    start_commit TEXT NOT NULL CHECK (length(trim(start_commit)) > 0)
+);
+
+CREATE TABLE IF NOT EXISTS created_branch_checkout (
+    change_id INTEGER PRIMARY KEY REFERENCES created_branch(change_id)
+);
+
 CREATE TABLE IF NOT EXISTS decision_check (
     decision_id INTEGER PRIMARY KEY REFERENCES implementation_decision(id),
     check_id INTEGER NOT NULL REFERENCES implementation_check(id)

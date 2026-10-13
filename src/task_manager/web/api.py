@@ -109,6 +109,15 @@ class FolderIn(BaseModel):
     folder: str = ""
 
 
+class CreateBranchIn(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+    project: str
+    what_changed: str
+    change_class: str | None = Field(default=None, alias="class")
+    stopped: bool = False
+    branch: str = ""
+
+
 class PullRequestIn(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
     project: str
@@ -286,6 +295,20 @@ def record_test(request: Request, task_id: int, body: TestRunIn):
 def record_pull_request(request: Request, task_id: int, body: PullRequestIn):
     return _respond(
         request.app.state.workspace.record_pull_request(
+            task_id,
+            body.project,
+            body.change_class,
+            body.what_changed,
+            body.stopped,
+            body.branch,
+        )
+    )
+
+
+@router.post("/tasks/{task_id}/branches")
+def record_branch(request: Request, task_id: int, body: CreateBranchIn):
+    return _respond(
+        request.app.state.workspace.record_branch(
             task_id,
             body.project,
             body.change_class,

@@ -247,6 +247,19 @@ def approve(
         if not isinstance(opened, str):
             return opened
         implementation_store.insert_pull_request_result(connection, int(change["id"]), opened)
+    pending_branch = implementation_store.row_created_branch(connection, int(change["id"]))
+    if pending_branch is not None and pending_branch["checked_out"] is None:
+        from task_manager.domain.branch import checkout_approved
+
+        checked_out = checkout_approved(
+            change["assistant_project"],
+            str(pending_branch["branch"]),
+            str(pending_branch["start_commit"]),
+            project_root or Path.cwd(),
+        )
+        if checked_out is not None:
+            return checked_out
+        implementation_store.insert_created_branch_checkout(connection, int(change["id"]))
     implementation_store.insert_resolution(
         connection,
         int(change["id"]),
