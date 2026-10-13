@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-13
 
-**Status**: Draft
+**Status**: Accepted
 
 **Input**: User description: "Run one test in the named project and store the result."
 

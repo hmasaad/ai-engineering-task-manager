@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-13
 
-**Status**: Draft
+**Status**: Accepted
 
 **Input**: User description: "Delete one file in the named project only after the engineer approves."
 

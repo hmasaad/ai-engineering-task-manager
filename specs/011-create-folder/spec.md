@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-13
 
-**Status**: Draft
+**Status**: Accepted
 
 **Input**: User description: "The assistant can create one folder inside a project that already exists."
 
