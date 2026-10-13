@@ -148,6 +148,28 @@ CREATE TABLE IF NOT EXISTS applied_file (
     )
 );
 
+CREATE TABLE IF NOT EXISTS created_folder (
+    change_id INTEGER PRIMARY KEY REFERENCES implementation_change(id),
+    folder_path TEXT NOT NULL CHECK (length(trim(folder_path)) > 0)
+);
+
+CREATE TABLE IF NOT EXISTS test_run (
+    change_id INTEGER PRIMARY KEY REFERENCES implementation_change(id),
+    test_path TEXT NOT NULL CHECK (length(trim(test_path)) > 0)
+);
+
+CREATE TABLE IF NOT EXISTS test_run_result (
+    change_id INTEGER PRIMARY KEY REFERENCES test_run(change_id),
+    result TEXT NOT NULL CHECK (result IN ('passed', 'failed')),
+    output TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS deleted_file (
+    change_id INTEGER PRIMARY KEY REFERENCES implementation_change(id),
+    file_path TEXT NOT NULL CHECK (length(trim(file_path)) > 0),
+    previous_text TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS decision_check (
     decision_id INTEGER PRIMARY KEY REFERENCES implementation_decision(id),
     check_id INTEGER NOT NULL REFERENCES implementation_check(id)

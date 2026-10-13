@@ -23,6 +23,12 @@ SELECT
     f.was_new AS applied_was_new,
     f.previous_text AS applied_previous,
     f.file_text AS applied_text,
+    d.folder_path AS created_folder_path,
+    tr.test_path AS test_path,
+    ts.result AS test_result,
+    ts.output AS test_output,
+    df.file_path AS deleted_file_path,
+    df.previous_text AS deleted_previous_text,
     m.model_name AS model_name,
     m.model_input AS model_input,
     m.model_output AS model_output,
@@ -31,6 +37,10 @@ FROM implementation_change AS c
 LEFT JOIN implementation_resolution AS r ON r.change_id = c.id
 LEFT JOIN assistant_change AS a ON a.change_id = c.id
 LEFT JOIN applied_file AS f ON f.change_id = c.id
+LEFT JOIN created_folder AS d ON d.change_id = c.id
+LEFT JOIN test_run AS tr ON tr.change_id = c.id
+LEFT JOIN test_run_result AS ts ON ts.change_id = c.id
+LEFT JOIN deleted_file AS df ON df.change_id = c.id
 LEFT JOIN model_call AS m ON m.change_id = c.id
 """
 
@@ -110,6 +120,82 @@ def insert_applied_file(
     )
 
 
+def insert_created_folder(connection: sqlite3.Connection, change_id: int, folder_path: str) -> None:
+    connection.execute(
+        """
+        INSERT INTO created_folder (change_id, folder_path)
+        VALUES (?, ?)
+        """,
+        (change_id, folder_path),
+    )
+
+
+def row_created_folder(connection: sqlite3.Connection, change_id: int) -> sqlite3.Row | None:
+    return connection.execute(
+        "SELECT folder_path FROM created_folder WHERE change_id = ?",
+        (change_id,),
+    ).fetchone()
+
+
+def insert_test_run(connection: sqlite3.Connection, change_id: int, test_path: str) -> None:
+    connection.execute(
+        """
+        INSERT INTO test_run (change_id, test_path)
+        VALUES (?, ?)
+        """,
+        (change_id, test_path),
+    )
+
+
+def insert_test_run_result(
+    connection: sqlite3.Connection,
+    change_id: int,
+    result: str,
+    output: str,
+) -> None:
+    connection.execute(
+        """
+        INSERT INTO test_run_result (change_id, result, output)
+        VALUES (?, ?, ?)
+        """,
+        (change_id, result, output),
+    )
+
+
+def insert_deleted_file(
+    connection: sqlite3.Connection,
+    change_id: int,
+    file_path: str,
+    previous_text: str,
+) -> None:
+    connection.execute(
+        """
+        INSERT INTO deleted_file (change_id, file_path, previous_text)
+        VALUES (?, ?, ?)
+        """,
+        (change_id, file_path, previous_text),
+    )
+
+
+def row_deleted_file(connection: sqlite3.Connection, change_id: int) -> sqlite3.Row | None:
+    return connection.execute(
+        "SELECT file_path, previous_text FROM deleted_file WHERE change_id = ?",
+        (change_id,),
+    ).fetchone()
+
+
+def row_test_run(connection: sqlite3.Connection, change_id: int) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT tr.test_path AS test_path, ts.result AS result
+        FROM test_run AS tr
+        LEFT JOIN test_run_result AS ts ON ts.change_id = tr.change_id
+        WHERE tr.change_id = ?
+        """,
+        (change_id,),
+    ).fetchone()
+
+
 def row_applied_file(connection: sqlite3.Connection, change_id: int) -> sqlite3.Row | None:
     return connection.execute(
         """
@@ -173,7 +259,33 @@ def change_payload(row: sqlite3.Row) -> dict[str, object]:
         "recorded_by": "assistant" if row["assistant_actor"] is not None else "engineer",
         "stopped": row["assistant_stopped"] == 1,
         "file": _file_payload(row),
+        "folder": None if row["created_folder_path"] is None else {"path": row["created_folder_path"]},
+        "test": _test_payload(row),
+        "deleted_file": _deleted_payload(row),
         "model": _model_payload(row),
+    }
+
+
+def _deleted_payload(row: sqlite3.Row) -> dict[str, object] | None:
+    if row["deleted_file_path"] is None:
+        return None
+    return {"path": row["deleted_file_path"], "text": row["deleted_previous_text"]}
+
+
+def _test_payload(row: sqlite3.Row) -> dict[str, object] | None:
+    if row["test_path"] is None:
+        return None
+    result = row["test_result"]
+    shown = None
+    if result == "passed":
+        shown = "Passed"
+    elif result == "failed":
+        shown = "Failed"
+    output = row["test_output"]
+    return {
+        "path": row["test_path"],
+        "result": shown,
+        "output": "" if output is None else output,
     }
 
 

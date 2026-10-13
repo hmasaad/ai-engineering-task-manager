@@ -158,6 +158,17 @@
     {% if change.file %}
     <p class="muted">{{ change.file.path }}{% if change.file.was_new %} new{% else %} was {{ change.file.previous_text }}{% endif %} → {{ change.file.text }}</p>
     {% endif %}
+    {% if change.folder %}
+    <p class="muted">Folder {{ change.folder.path }}</p>
+    {% endif %}
+    {% if change.test %}
+    <p class="muted">Test {{ change.test.path }}{% if change.test.result %}: {{ change.test.result }}{% endif %}</p>
+    {% if change.test.output %}<pre class="muted">{{ change.test.output }}</pre>{% endif %}
+    {% endif %}
+    {% if change.deleted_file %}
+    <p class="muted">Delete {{ change.deleted_file.path }}</p>
+    <p class="muted">{{ change.deleted_file.text }}</p>
+    {% endif %}
     {% if change.model %}
     <p class="muted">{{ change.model.name }} returned {{ change.model.output }}</p>
     {% endif %}
@@ -271,6 +282,54 @@
   <textarea id="assistant-file-text" name="file_text" rows="2"></textarea>
   <label><input id="assistant-stopped" name="stopped" type="checkbox" value="true"> Stop before carrying it out</label>
   <p><button type="submit">Record assistant change</button></p>
+</form>
+<form method="post" action="/tasks/{{ task.id }}/folders">
+  <label for="folder-project">Project</label>
+  <input id="folder-project" name="project" type="text">
+  <label for="folder-class">Ordinary or consequential</label>
+  <select id="folder-class" name="class">
+    <option value="">Choose</option>
+    <option value="ordinary">Ordinary</option>
+    <option value="consequential">Consequential</option>
+  </select>
+  <label for="folder-what">What changed</label>
+  <textarea id="folder-what" name="what_changed" rows="2"></textarea>
+  <label for="folder-path">Folder</label>
+  <input id="folder-path" name="folder" type="text">
+  <label><input id="folder-stopped" name="stopped" type="checkbox" value="true"> Stop before carrying it out</label>
+  <p><button type="submit">Create folder</button></p>
+</form>
+<form method="post" action="/tasks/{{ task.id }}/test-runs">
+  <label for="test-project">Project</label>
+  <input id="test-project" name="project" type="text">
+  <label for="test-class">Ordinary or consequential</label>
+  <select id="test-class" name="class">
+    <option value="">Choose</option>
+    <option value="ordinary">Ordinary</option>
+    <option value="consequential">Consequential</option>
+  </select>
+  <label for="test-what">What changed</label>
+  <textarea id="test-what" name="what_changed" rows="2"></textarea>
+  <label for="test-path">Test</label>
+  <input id="test-path" name="test" type="text">
+  <label><input id="test-stopped" name="stopped" type="checkbox" value="true"> Stop before carrying it out</label>
+  <p><button type="submit">Run test</button></p>
+</form>
+<form method="post" action="/tasks/{{ task.id }}/deletes">
+  <label for="delete-project">Project</label>
+  <input id="delete-project" name="project" type="text">
+  <label for="delete-class">Ordinary or consequential</label>
+  <select id="delete-class" name="class">
+    <option value="">Choose</option>
+    <option value="ordinary">Ordinary</option>
+    <option value="consequential">Consequential</option>
+  </select>
+  <label for="delete-what">What changed</label>
+  <textarea id="delete-what" name="what_changed" rows="2"></textarea>
+  <label for="delete-file">File</label>
+  <input id="delete-file" name="file" type="text">
+  <label><input id="delete-stopped" name="stopped" type="checkbox" value="true"> Stop before carrying it out</label>
+  <p><button type="submit">Delete file</button></p>
 </form>
 <form method="post" action="/tasks/{{ task.id }}/file-reads">
   <label for="read-project">Project</label>

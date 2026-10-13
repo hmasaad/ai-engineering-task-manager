@@ -7,12 +7,15 @@ from task_manager.clock import ScriptedClock, SystemClock, format_time
 from task_manager.domain import (
     capture,
     decisions,
+    delete_file,
     file_read,
+    folder,
     implementation,
     model_file,
     requirement,
     status,
     subtasks,
+    test_run,
     verification,
 )
 from task_manager.domain.results import Refusal
@@ -193,6 +196,78 @@ class Workspace:
                 at,
                 file_path,
                 file_text,
+                root,
+            )
+        )
+
+    def record_folder(
+        self,
+        task_id: int,
+        project: str | None,
+        change_class: str | None,
+        what_changed: str | None,
+        stopped: bool,
+        folder_path: str | None,
+    ):
+        root = self.project_root
+        return self._run(
+            lambda conn, at: folder.record(
+                conn,
+                task_id,
+                project,
+                change_class,
+                what_changed,
+                stopped,
+                folder_path,
+                at,
+                root,
+            )
+        )
+
+    def record_test(
+        self,
+        task_id: int,
+        project: str | None,
+        change_class: str | None,
+        what_changed: str | None,
+        stopped: bool,
+        test_path: str | None,
+    ):
+        root = self.project_root
+        return self._run(
+            lambda conn, at: test_run.record(
+                conn,
+                task_id,
+                project,
+                change_class,
+                what_changed,
+                stopped,
+                test_path,
+                at,
+                root,
+            )
+        )
+
+    def record_deletion(
+        self,
+        task_id: int,
+        project: str | None,
+        change_class: str | None,
+        what_changed: str | None,
+        stopped: bool,
+        file_path: str | None,
+    ):
+        root = self.project_root
+        return self._run(
+            lambda conn, at: delete_file.record(
+                conn,
+                task_id,
+                project,
+                change_class,
+                what_changed,
+                stopped,
+                file_path,
+                at,
                 root,
             )
         )

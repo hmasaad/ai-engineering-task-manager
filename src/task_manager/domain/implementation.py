@@ -178,6 +178,47 @@ def approve(
         )
         if written is not None:
             return written
+    created = implementation_store.row_created_folder(connection, int(change["id"]))
+    if created is not None:
+        from task_manager.domain.folder import create_approved
+
+        made = create_approved(
+            change["assistant_project"],
+            str(created["folder_path"]),
+            project_root or Path.cwd(),
+        )
+        if made is not None:
+            return made
+    pending = implementation_store.row_test_run(connection, int(change["id"]))
+    if pending is not None and pending["result"] is None:
+        from task_manager.domain.test_run import run_approved
+
+        ran = run_approved(
+            change["assistant_project"],
+            str(pending["test_path"]),
+            project_root or Path.cwd(),
+        )
+        if not isinstance(ran, tuple):
+            return ran
+        result, output = ran
+        implementation_store.insert_test_run_result(
+            connection,
+            int(change["id"]),
+            result,
+            output,
+        )
+    deleted = implementation_store.row_deleted_file(connection, int(change["id"]))
+    if deleted is not None:
+        from task_manager.domain.delete_file import delete_approved
+
+        removed = delete_approved(
+            change["assistant_project"],
+            str(deleted["file_path"]),
+            str(deleted["previous_text"]),
+            project_root or Path.cwd(),
+        )
+        if removed is not None:
+            return removed
     implementation_store.insert_resolution(
         connection,
         int(change["id"]),

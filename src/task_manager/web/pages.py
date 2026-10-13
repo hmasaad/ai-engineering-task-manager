@@ -206,6 +206,78 @@ def record_assistant_change(
     )
 
 
+@router.post("/tasks/{task_id}/folders")
+def record_folder(
+    request: Request,
+    task_id: int,
+    project: str = Form(""),
+    what_changed: str = Form(""),
+    change_class: str = Form("", alias="class"),
+    stopped: str = Form(""),
+    folder_path: str = Form("", alias="folder"),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).record_folder(
+            task_id,
+            project,
+            change_class or None,
+            what_changed,
+            stopped == "true",
+            folder_path,
+        ),
+    )
+
+
+@router.post("/tasks/{task_id}/test-runs")
+def record_test(
+    request: Request,
+    task_id: int,
+    project: str = Form(""),
+    what_changed: str = Form(""),
+    change_class: str = Form("", alias="class"),
+    stopped: str = Form(""),
+    test_path: str = Form("", alias="test"),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).record_test(
+            task_id,
+            project,
+            change_class or None,
+            what_changed,
+            stopped == "true",
+            test_path,
+        ),
+    )
+
+
+@router.post("/tasks/{task_id}/deletes")
+def record_deletion(
+    request: Request,
+    task_id: int,
+    project: str = Form(""),
+    what_changed: str = Form(""),
+    change_class: str = Form("", alias="class"),
+    stopped: str = Form(""),
+    file_path: str = Form("", alias="file"),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).record_deletion(
+            task_id,
+            project,
+            change_class or None,
+            what_changed,
+            stopped == "true",
+            file_path,
+        ),
+    )
+
+
 @router.post("/tasks/{task_id}/implementation-changes/{change_id}/approve")
 def approve_change(
     request: Request,

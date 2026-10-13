@@ -100,6 +100,33 @@ class AssistantChangeIn(BaseModel):
     file_text: str | None = None
 
 
+class FolderIn(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+    project: str
+    what_changed: str
+    change_class: str | None = Field(default=None, alias="class")
+    stopped: bool = False
+    folder: str = ""
+
+
+class DeleteFileIn(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+    project: str
+    what_changed: str
+    change_class: str | None = Field(default=None, alias="class")
+    stopped: bool = False
+    file: str = ""
+
+
+class TestRunIn(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+    project: str
+    what_changed: str
+    change_class: str | None = Field(default=None, alias="class")
+    stopped: bool = False
+    test: str = ""
+
+
 class CheckIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
     criterion_id: int | None = None
@@ -206,6 +233,48 @@ def record_model_file(request: Request, task_id: int, body: ModelFileIn):
 def record_file_read(request: Request, task_id: int, body: FileReadIn):
     return _respond(
         request.app.state.workspace.record_file_read(task_id, body.project, body.file)
+    )
+
+
+@router.post("/tasks/{task_id}/folders")
+def record_folder(request: Request, task_id: int, body: FolderIn):
+    return _respond(
+        request.app.state.workspace.record_folder(
+            task_id,
+            body.project,
+            body.change_class,
+            body.what_changed,
+            body.stopped,
+            body.folder,
+        )
+    )
+
+
+@router.post("/tasks/{task_id}/test-runs")
+def record_test(request: Request, task_id: int, body: TestRunIn):
+    return _respond(
+        request.app.state.workspace.record_test(
+            task_id,
+            body.project,
+            body.change_class,
+            body.what_changed,
+            body.stopped,
+            body.test,
+        )
+    )
+
+
+@router.post("/tasks/{task_id}/deletes")
+def record_deletion(request: Request, task_id: int, body: DeleteFileIn):
+    return _respond(
+        request.app.state.workspace.record_deletion(
+            task_id,
+            body.project,
+            body.change_class,
+            body.what_changed,
+            body.stopped,
+            body.file,
+        )
     )
 
 
