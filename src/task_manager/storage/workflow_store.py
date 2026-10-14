@@ -74,6 +74,58 @@ def delete_step(connection: sqlite3.Connection, step_id: int) -> None:
     connection.execute("DELETE FROM workflow_step WHERE id = ?", (step_id,))
 
 
+def insert_attempt(connection: sqlite3.Connection, step_id: int, effect_before: int) -> None:
+    connection.execute(
+        """
+        INSERT INTO workflow_attempt (step_id, effect_before)
+        VALUES (?, ?)
+        """,
+        (step_id, effect_before),
+    )
+
+
+def row_attempt(connection: sqlite3.Connection, step_id: int) -> sqlite3.Row | None:
+    return connection.execute(
+        "SELECT step_id, effect_before FROM workflow_attempt WHERE step_id = ?",
+        (step_id,),
+    ).fetchone()
+
+
+def delete_attempt(connection: sqlite3.Connection, step_id: int) -> None:
+    connection.execute("DELETE FROM workflow_attempt WHERE step_id = ?", (step_id,))
+
+
+def insert_event(
+    connection: sqlite3.Connection,
+    task_id: int,
+    step_id: int,
+    state: str,
+    detail: str | None,
+    recorded_at: str,
+) -> None:
+    connection.execute(
+        """
+        INSERT INTO workflow_event (task_id, step_id, state, detail, recorded_at)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (task_id, step_id, state, detail, recorded_at),
+    )
+
+
+def events(connection: sqlite3.Connection, task_id: int) -> list[sqlite3.Row]:
+    return connection.execute(
+        """
+        SELECT workflow_event.id, workflow_event.step_id, workflow_step.title,
+               workflow_event.state, workflow_event.detail, workflow_event.recorded_at
+        FROM workflow_event
+        JOIN workflow_step ON workflow_step.id = workflow_event.step_id
+        WHERE workflow_event.task_id = ?
+        ORDER BY workflow_event.id ASC
+        """,
+        (task_id,),
+    ).fetchall()
+
+
 def update_step(
     connection: sqlite3.Connection,
     step_id: int,

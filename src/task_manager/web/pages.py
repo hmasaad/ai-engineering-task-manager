@@ -183,6 +183,11 @@ def advance_workflow(request: Request, task_id: int):
     return _after(request, task_id, _workspace(request).advance_workflow(task_id))
 
 
+@router.post("/tasks/{task_id}/workflow/recover")
+def recover_workflow(request: Request, task_id: int):
+    return _after(request, task_id, _workspace(request).recover_workflow(task_id))
+
+
 @router.post("/tasks/{task_id}/subtasks")
 def add_subtask(request: Request, task_id: int, title: str = Form("")):
     result = _workspace(request).add_subtask(task_id, title)

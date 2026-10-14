@@ -297,7 +297,7 @@ CREATE TABLE IF NOT EXISTS workflow_step (
     path TEXT NOT NULL CHECK (length(trim(path)) > 0),
     what_changed TEXT,
     change_class TEXT,
-    state TEXT NOT NULL CHECK (state IN ('Pending', 'Completed', 'Waiting', 'Failed')),
+    state TEXT NOT NULL CHECK (state IN ('Pending', 'Running', 'Completed', 'Waiting', 'Failed')),
     detail TEXT,
     change_id INTEGER REFERENCES implementation_change(id),
     CHECK (
@@ -316,3 +316,20 @@ CREATE TABLE IF NOT EXISTS workflow_step (
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_workflow_step_task_position
     ON workflow_step(task_id, position);
+
+CREATE TABLE IF NOT EXISTS workflow_attempt (
+    step_id INTEGER PRIMARY KEY REFERENCES workflow_step(id),
+    effect_before INTEGER NOT NULL CHECK (effect_before >= 0)
+);
+
+CREATE TABLE IF NOT EXISTS workflow_event (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    step_id INTEGER NOT NULL REFERENCES workflow_step(id),
+    state TEXT NOT NULL CHECK (state IN ('Running', 'Completed', 'Waiting', 'Failed')),
+    detail TEXT,
+    recorded_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_workflow_event_task
+    ON workflow_event(task_id, id);

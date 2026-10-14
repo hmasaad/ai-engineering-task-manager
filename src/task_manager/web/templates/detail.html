@@ -213,7 +213,19 @@
   <p><button type="submit">Add step</button></p>
 </form>
 {% endif %}
-{% if task.status == "In Progress" and task.workflow.steps and not task.workflow.finished %}
+{% if task.workflow.replay %}
+<h3>Replay</h3>
+<ol id="workflow-replay">
+  {% for event in task.workflow.replay %}
+  <li>{{ event.title }} <span class="status">{{ event.state }}</span>{% if event.detail %} {{ event.detail }}{% endif %}</li>
+  {% endfor %}
+</ol>
+{% endif %}
+{% if task.status == "In Progress" and task.workflow.interrupted %}
+<form method="post" action="/tasks/{{ task.id }}/workflow/recover">
+  <p><button type="submit">Recover workflow</button></p>
+</form>
+{% elif task.status == "In Progress" and task.workflow.steps and not task.workflow.finished %}
 <form method="post" action="/tasks/{{ task.id }}/workflow/advance">
   <p><button type="submit">Advance workflow</button></p>
 </form>

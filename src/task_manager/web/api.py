@@ -295,6 +295,16 @@ def advance_workflow(request: Request, task_id: int):
     return _respond(request.app.state.workspace.advance_workflow(task_id))
 
 
+@router.post("/tasks/{task_id}/workflow/recover")
+def recover_workflow(request: Request, task_id: int):
+    return _respond(request.app.state.workspace.recover_workflow(task_id))
+
+
+@router.get("/tasks/{task_id}/workflow-replay")
+def workflow_replay(request: Request, task_id: int):
+    return _respond(request.app.state.workspace.workflow_replay(task_id))
+
+
 @router.post("/tasks/{task_id}/subtasks")
 def add_subtask(request: Request, task_id: int, body: SubtaskIn):
     return _respond(request.app.state.workspace.add_subtask(task_id, body.title))

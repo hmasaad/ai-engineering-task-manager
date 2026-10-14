@@ -23,9 +23,16 @@ ADD_ONLY_BEFORE = "A step can be added only before the workflow runs."
 REMOVE_ONLY_BEFORE = "A step cannot be removed after the workflow runs."
 STEP_NOT_ON_TASK = "That step is not on this task."
 NO_STEP = "There is no step to run."
+RECOVER_FIRST = "Recover the interrupted step first."
+NO_RECOVER = "There is no step to recover."
+INTERRUPTED = "the step was interrupted."
 WAITING = "waiting for approval."
 _ACTIONS = ("read", "folder")
 _CLASSES = ("ordinary", "consequential")
+
+
+class ReadyToFinish:
+    """The running entry is stored. The result is a later transaction."""
 
 
 def add(
@@ -99,7 +106,29 @@ def remove(connection: sqlite3.Connection, task_id: int, step_id: int):
     return _detail(connection, int(task["id"]))
 
 
-def advance(
+def prepare(connection: sqlite3.Connection, task_id: int, occurred_at: str):
+    task = task_store.row_task(connection, task_id)
+    if task is None:
+        return missing("Task not found.")
+    status_refusal = _record_status(task["status"])
+    if status_refusal is not None:
+        return status_refusal
+    current = _unfinished(connection, int(task["id"]))
+    if current is None:
+        return conflict(NO_STEP)
+    if current["state"] == "Running":
+        return conflict(RECOVER_FIRST)
+    if current["state"] == "Waiting":
+        _settle(connection, current, occurred_at)
+        return _detail(connection, int(task["id"]))
+    kept_change = None if current["change_id"] is None else int(current["change_id"])
+    workflow_store.update_step(connection, int(current["id"]), "Running", None, kept_change)
+    workflow_store.insert_attempt(connection, int(current["id"]), _baseline(connection, current))
+    _remember(connection, current, "Running", None, occurred_at)
+    return ReadyToFinish()
+
+
+def finish(
     connection: sqlite3.Connection,
     task_id: int,
     occurred_at: str,
@@ -112,13 +141,38 @@ def advance(
     if status_refusal is not None:
         return status_refusal
     current = _unfinished(connection, int(task["id"]))
-    if current is None:
-        return conflict(NO_STEP)
-    if current["state"] == "Waiting":
-        _settle(connection, current)
-    else:
-        _perform(connection, current, occurred_at, project_root)
+    if current is None or current["state"] != "Running":
+        return _detail(connection, int(task["id"]))
+    _perform(connection, current, occurred_at, project_root)
+    workflow_store.delete_attempt(connection, int(current["id"]))
     return _detail(connection, int(task["id"]))
+
+
+def recover(
+    connection: sqlite3.Connection,
+    task_id: int,
+    occurred_at: str,
+    project_root: Path,
+):
+    del project_root
+    task = task_store.row_task(connection, task_id)
+    if task is None:
+        return missing("Task not found.")
+    status_refusal = _record_status(task["status"])
+    if status_refusal is not None:
+        return status_refusal
+    current = _unfinished(connection, int(task["id"]))
+    if current is None or current["state"] != "Running":
+        return conflict(NO_RECOVER)
+    _recover_running(connection, current, occurred_at)
+    workflow_store.delete_attempt(connection, int(current["id"]))
+    return _detail(connection, int(task["id"]))
+
+
+def replay(connection: sqlite3.Connection, task_id: int):
+    if task_store.row_task(connection, task_id) is None:
+        return missing("Task not found.")
+    return {"events": _events(connection, task_id)}
 
 
 def payload(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
@@ -128,6 +182,8 @@ def payload(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
         "stopped": _stopped(rows),
         "started": any(row["state"] != "Pending" for row in rows),
         "finished": bool(rows) and all(row["state"] == "Completed" for row in rows),
+        "interrupted": any(row["state"] == "Running" for row in rows),
+        "replay": _events(connection, task_id),
     }
 
 
@@ -157,9 +213,9 @@ def _perform(
             project_root,
         )
         if isinstance(result, Refusal):
-            workflow_store.update_step(connection, int(step["id"]), "Failed", result.message, None)
+            _set_outcome(connection, step, "Failed", result.message, None, occurred_at)
         else:
-            workflow_store.update_step(connection, int(step["id"]), "Completed", None, None)
+            _set_outcome(connection, step, "Completed", None, None, occurred_at)
         return
     from task_manager.domain.folder import record
 
@@ -178,44 +234,131 @@ def _perform(
         project_root,
     )
     if isinstance(result, Refusal):
-        workflow_store.update_step(connection, int(step["id"]), "Failed", result.message, None)
+        _set_outcome(connection, step, "Failed", result.message, None, occurred_at)
         return
     created = [
         item
         for item in implementation_store.changes_for(connection, task_id)
         if int(item["id"]) not in before
     ]
-    change = created[-1]
+    _apply_change(connection, step, created[-1], occurred_at)
+
+
+def _recover_running(
+    connection: sqlite3.Connection,
+    step: sqlite3.Row,
+    occurred_at: str,
+) -> None:
+    attempt = workflow_store.row_attempt(connection, int(step["id"]))
+    if attempt is None:
+        _set_outcome(connection, step, "Failed", INTERRUPTED, None, occurred_at)
+        return
+    before = int(attempt["effect_before"])
+    task_id = int(step["task_id"])
+    if step["action"] == "read":
+        from task_manager.storage.file_read_store import file_reads_for
+
+        if len(file_reads_for(connection, task_id)) > before:
+            _set_outcome(connection, step, "Completed", None, None, occurred_at)
+        else:
+            _set_outcome(connection, step, "Failed", INTERRUPTED, None, occurred_at)
+        return
+    created = [
+        item
+        for item in implementation_store.changes_for(connection, task_id)
+        if int(item["id"]) > before
+    ]
+    if not created:
+        kept_change = None if step["change_id"] is None else int(step["change_id"])
+        _set_outcome(connection, step, "Failed", INTERRUPTED, kept_change, occurred_at)
+        return
+    _apply_change(connection, step, created[-1], occurred_at)
+
+
+def _apply_change(
+    connection: sqlite3.Connection,
+    step: sqlite3.Row,
+    change: dict[str, object],
+    occurred_at: str,
+) -> None:
     change_id = int(change["id"])
     if change["outcome"] == "Awaiting approval":
-        workflow_store.update_step(connection, int(step["id"]), "Waiting", None, change_id)
+        _set_outcome(connection, step, "Waiting", None, change_id, occurred_at)
     elif change["outcome"] == "Carried out":
-        workflow_store.update_step(connection, int(step["id"]), "Completed", None, change_id)
+        _set_outcome(connection, step, "Completed", None, change_id, occurred_at)
     else:
         reason = ""
-        if change["not_carried_out"] is not None:
-            reason = str(change["not_carried_out"]["reason"])
-        workflow_store.update_step(connection, int(step["id"]), "Failed", reason, change_id)
+        not_carried = change["not_carried_out"]
+        if isinstance(not_carried, dict):
+            reason = str(not_carried["reason"])
+        _set_outcome(connection, step, "Failed", reason, change_id, occurred_at)
 
 
-def _settle(connection: sqlite3.Connection, step: sqlite3.Row) -> None:
+def _settle(connection: sqlite3.Connection, step: sqlite3.Row, occurred_at: str) -> None:
     change_id = int(step["change_id"])
     row = implementation_store.row_change(connection, change_id)
     if row is None:
-        workflow_store.update_step(
-            connection, int(step["id"]), "Failed", CHANGE_NOT_FOUND, change_id
-        )
+        _set_outcome(connection, step, "Failed", CHANGE_NOT_FOUND, change_id, occurred_at)
         return
     change = implementation_store.change_payload(row)
     if change["outcome"] == "Awaiting approval":
         return
-    if change["outcome"] == "Carried out":
-        workflow_store.update_step(connection, int(step["id"]), "Completed", None, change_id)
-        return
-    reason = ""
-    if change["not_carried_out"] is not None:
-        reason = str(change["not_carried_out"]["reason"])
-    workflow_store.update_step(connection, int(step["id"]), "Failed", reason, change_id)
+    _apply_change(connection, step, change, occurred_at)
+
+
+def _baseline(connection: sqlite3.Connection, step: sqlite3.Row) -> int:
+    task_id = int(step["task_id"])
+    if step["action"] == "read":
+        from task_manager.storage.file_read_store import file_reads_for
+
+        return len(file_reads_for(connection, task_id))
+    changes = implementation_store.changes_for(connection, task_id)
+    if not changes:
+        return 0
+    return max(int(item["id"]) for item in changes)
+
+
+def _set_outcome(
+    connection: sqlite3.Connection,
+    step: sqlite3.Row,
+    state: str,
+    detail: str | None,
+    change_id: int | None,
+    occurred_at: str,
+) -> None:
+    workflow_store.update_step(connection, int(step["id"]), state, detail, change_id)
+    _remember(connection, step, state, detail, occurred_at)
+
+
+def _remember(
+    connection: sqlite3.Connection,
+    step: sqlite3.Row,
+    state: str,
+    detail: str | None,
+    occurred_at: str,
+) -> None:
+    workflow_store.insert_event(
+        connection,
+        int(step["task_id"]),
+        int(step["id"]),
+        state,
+        detail,
+        occurred_at,
+    )
+
+
+def _events(connection: sqlite3.Connection, task_id: int) -> list[dict[str, object]]:
+    return [
+        {
+            "id": int(row["id"]),
+            "step_id": int(row["step_id"]),
+            "title": row["title"],
+            "state": row["state"],
+            "detail": row["detail"],
+            "recorded_at": row["recorded_at"],
+        }
+        for row in workflow_store.events(connection, task_id)
+    ]
 
 
 def _public(row: sqlite3.Row) -> dict[str, object]:
@@ -238,5 +381,7 @@ def _stopped(rows: list[sqlite3.Row]) -> str | None:
             return f"Stopped at {row['title']}: {row['detail']}"
         if row["state"] == "Waiting":
             return f"Stopped at {row['title']}: {WAITING}"
+        if row["state"] == "Running":
+            return f"Stopped at {row['title']}: {INTERRUPTED}"
         return None
     return None

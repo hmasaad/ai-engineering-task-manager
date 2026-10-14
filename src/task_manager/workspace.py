@@ -110,7 +110,18 @@ class Workspace:
 
     def advance_workflow(self, task_id: int):
         root = self.project_root
-        return self._run(lambda conn, at: workflow.advance(conn, task_id, at, root))
+        prepared = self._run(lambda conn, at: workflow.prepare(conn, task_id, at))
+        if isinstance(prepared, workflow.ReadyToFinish):
+            return self._run(lambda conn, at: workflow.finish(conn, task_id, at, root))
+        return prepared
+
+    def recover_workflow(self, task_id: int):
+        root = self.project_root
+        return self._run(lambda conn, at: workflow.recover(conn, task_id, at, root))
+
+    def workflow_replay(self, task_id: int):
+        with self._lock:
+            return workflow.replay(self.connection, task_id)
 
     def get_task(self, task_id: int):
         with self._lock:
