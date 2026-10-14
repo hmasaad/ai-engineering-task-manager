@@ -76,6 +76,7 @@
 {% endif %}
 
 <h2>Status</h2>
+{% if task.blocked_by %}<p class="muted">{{ task.blocked_by }}</p>{% endif %}
 {% if task.status == "Draft" %}
 <form method="post" action="/tasks/{{ task.id }}/transition">
   <input type="hidden" name="action" value="mark_ready">
@@ -136,6 +137,85 @@
   <label for="subtask-title">Subtask title</label>
   <input id="subtask-title" name="title" type="text">
   <p><button type="submit">Add subtask</button></p>
+</form>
+{% endif %}
+
+<h2>Prerequisites</h2>
+{% if task.prerequisites %}
+<ul id="prerequisites">
+  {% for prerequisite in task.prerequisites %}
+  <li>
+    <a href="/tasks/{{ prerequisite.id }}">{{ prerequisite.title }}</a>
+    <span class="status">{{ prerequisite.status }}</span>
+    {% if task.status != "Cancelled" %}
+    <form method="post" action="/tasks/{{ task.id }}/prerequisites/{{ prerequisite.id }}/remove">
+      <button type="submit" class="secondary">Remove prerequisite</button>
+    </form>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No prerequisites.</p>
+{% endif %}
+{% if task.status != "Cancelled" %}
+<form method="post" action="/tasks/{{ task.id }}/prerequisites">
+  <label for="prerequisite-id">Prerequisite task</label>
+  <input id="prerequisite-id" name="prerequisite_id" type="text">
+  <p><button type="submit">Add prerequisite</button></p>
+</form>
+{% endif %}
+
+<h2>Workflow</h2>
+{% if task.workflow.stopped %}
+<p class="muted" id="workflow-stopped">{{ task.workflow.stopped }}</p>
+{% endif %}
+{% if task.workflow.steps %}
+<ol id="workflow">
+  {% for step in task.workflow.steps %}
+  <li>
+    <strong>{{ step.title }}</strong>
+    <span class="status">{{ step.state }}</span>
+    <p class="muted">{% if step.action == "read" %}Read a file{% else %}Create a folder{% endif %} {{ step.path }}</p>
+    {% if task.status == "In Progress" and not task.workflow.started %}
+    <form method="post" action="/tasks/{{ task.id }}/workflow-steps/{{ step.id }}/remove">
+      <button type="submit" class="secondary">Remove step</button>
+    </form>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ol>
+{% else %}
+<p class="muted">No workflow steps yet.</p>
+{% endif %}
+{% if task.status == "In Progress" and not task.workflow.started %}
+<form method="post" action="/tasks/{{ task.id }}/workflow-steps">
+  <label for="step-title">Step</label>
+  <input id="step-title" name="title" type="text">
+  <label for="step-action">Action</label>
+  <select id="step-action" name="action">
+    <option value="">Choose</option>
+    <option value="read">Read a file</option>
+    <option value="folder">Create a folder</option>
+  </select>
+  <label for="step-project">Project</label>
+  <input id="step-project" name="project" type="text">
+  <label for="step-path">File or folder</label>
+  <input id="step-path" name="path" type="text">
+  <label for="step-class">Ordinary or consequential</label>
+  <select id="step-class" name="class">
+    <option value="">Choose</option>
+    <option value="ordinary">Ordinary</option>
+    <option value="consequential">Consequential</option>
+  </select>
+  <label for="step-what">What changed</label>
+  <textarea id="step-what" name="what_changed" rows="2"></textarea>
+  <p><button type="submit">Add step</button></p>
+</form>
+{% endif %}
+{% if task.status == "In Progress" and task.workflow.steps and not task.workflow.finished %}
+<form method="post" action="/tasks/{{ task.id }}/workflow/advance">
+  <p><button type="submit">Advance workflow</button></p>
 </form>
 {% endif %}
 

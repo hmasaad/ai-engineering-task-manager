@@ -14,6 +14,21 @@ class CreateTask(BaseModel):
     title: str
 
 
+class PrerequisiteIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    prerequisite_id: int
+
+
+class WorkflowStepIn(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+    title: str
+    action: str = ""
+    project: str = ""
+    path: str = ""
+    what_changed: str = ""
+    change_class: str | None = Field(default=None, alias="class")
+
+
 class GoalUpdate(BaseModel):
     model_config = ConfigDict(extra="ignore")
     goal: str
@@ -177,6 +192,11 @@ def _respond(result):
     return result
 
 
+@router.get("/execution-order")
+def execution_order(request: Request):
+    return request.app.state.workspace.execution_order()
+
+
 @router.get("/tasks")
 def list_tasks(request: Request):
     return request.app.state.workspace.list_tasks()
@@ -234,6 +254,45 @@ def verify(request: Request, task_id: int, criterion_id: int, body: VerifyIn):
 @router.post("/tasks/{task_id}/criteria/{criterion_id}/unverify")
 def unverify(request: Request, task_id: int, criterion_id: int):
     return _respond(request.app.state.workspace.unverify_criterion(task_id, criterion_id))
+
+
+@router.post("/tasks/{task_id}/prerequisites")
+def add_prerequisite(request: Request, task_id: int, body: PrerequisiteIn):
+    return _respond(
+        request.app.state.workspace.add_prerequisite(task_id, body.prerequisite_id)
+    )
+
+
+@router.post("/tasks/{task_id}/prerequisites/{prerequisite_id}/remove")
+def remove_prerequisite(request: Request, task_id: int, prerequisite_id: int):
+    return _respond(
+        request.app.state.workspace.remove_prerequisite(task_id, prerequisite_id)
+    )
+
+
+@router.post("/tasks/{task_id}/workflow-steps")
+def add_workflow_step(request: Request, task_id: int, body: WorkflowStepIn):
+    return _respond(
+        request.app.state.workspace.add_workflow_step(
+            task_id,
+            body.title,
+            body.action,
+            body.project,
+            body.path,
+            body.what_changed,
+            body.change_class,
+        )
+    )
+
+
+@router.post("/tasks/{task_id}/workflow-steps/{step_id}/remove")
+def remove_workflow_step(request: Request, task_id: int, step_id: int):
+    return _respond(request.app.state.workspace.remove_workflow_step(task_id, step_id))
+
+
+@router.post("/tasks/{task_id}/workflow/advance")
+def advance_workflow(request: Request, task_id: int):
+    return _respond(request.app.state.workspace.advance_workflow(task_id))
 
 
 @router.post("/tasks/{task_id}/subtasks")

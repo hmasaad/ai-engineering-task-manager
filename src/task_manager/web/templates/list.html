@@ -13,6 +13,14 @@
 {% else %}
 <p>No tasks yet.</p>
 {% endif %}
+{% if order %}
+<h2>Execution order</h2>
+<ol id="execution-order">
+  {% for task in order %}
+  <li><a href="/tasks/{{ task.id }}">{{ task.title }}</a> <span class="status">{{ task.status }}</span></li>
+  {% endfor %}
+</ol>
+{% endif %}
 <h2>New task</h2>
 <form method="post" action="/tasks">
   <label for="title">Title</label>

@@ -10,6 +10,7 @@ from task_manager.domain import (
     commit_file,
     decisions,
     delete_file,
+    dependency,
     file_read,
     folder,
     implementation,
@@ -20,6 +21,7 @@ from task_manager.domain import (
     subtasks,
     test_run,
     verification,
+    workflow,
 )
 from task_manager.domain.results import Refusal
 from task_manager.storage.connection import (
@@ -65,6 +67,50 @@ class Workspace:
     def list_tasks(self) -> list[dict[str, object]]:
         with self._lock:
             return list_top_level(self.connection)
+
+    def execution_order(self) -> list[dict[str, object]]:
+        with self._lock:
+            return dependency.execution_order(self.connection)
+
+    def add_prerequisite(self, task_id: int, prerequisite_id: int | None):
+        return self._run(
+            lambda conn, _at: dependency.add(conn, task_id, prerequisite_id)
+        )
+
+    def remove_prerequisite(self, task_id: int, prerequisite_id: int):
+        return self._run(
+            lambda conn, _at: dependency.remove(conn, task_id, prerequisite_id)
+        )
+
+    def add_workflow_step(
+        self,
+        task_id: int,
+        title: str | None,
+        action: str | None,
+        project: str | None,
+        path: str | None,
+        what_changed: str | None,
+        change_class: str | None,
+    ):
+        return self._run(
+            lambda conn, _at: workflow.add(
+                conn,
+                task_id,
+                title,
+                action,
+                project,
+                path,
+                what_changed,
+                change_class,
+            )
+        )
+
+    def remove_workflow_step(self, task_id: int, step_id: int):
+        return self._run(lambda conn, _at: workflow.remove(conn, task_id, step_id))
+
+    def advance_workflow(self, task_id: int):
+        root = self.project_root
+        return self._run(lambda conn, at: workflow.advance(conn, task_id, at, root))
 
     def get_task(self, task_id: int):
         with self._lock:

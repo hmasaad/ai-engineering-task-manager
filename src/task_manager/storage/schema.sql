@@ -276,3 +276,43 @@ CREATE TABLE IF NOT EXISTS criterion_evidence (
     method TEXT NOT NULL CHECK (length(trim(method)) > 0),
     run_identifier TEXT NOT NULL CHECK (length(trim(run_identifier)) > 0)
 );
+
+CREATE TABLE IF NOT EXISTS task_dependency (
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    prerequisite_id INTEGER NOT NULL REFERENCES task(id),
+    PRIMARY KEY (task_id, prerequisite_id),
+    CHECK (task_id != prerequisite_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_dependency_prerequisite
+    ON task_dependency(prerequisite_id);
+
+CREATE TABLE IF NOT EXISTS workflow_step (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    position INTEGER NOT NULL,
+    title TEXT NOT NULL CHECK (length(trim(title)) > 0),
+    action TEXT NOT NULL CHECK (action IN ('read', 'folder')),
+    project TEXT NOT NULL CHECK (length(trim(project)) > 0),
+    path TEXT NOT NULL CHECK (length(trim(path)) > 0),
+    what_changed TEXT,
+    change_class TEXT,
+    state TEXT NOT NULL CHECK (state IN ('Pending', 'Completed', 'Waiting', 'Failed')),
+    detail TEXT,
+    change_id INTEGER REFERENCES implementation_change(id),
+    CHECK (
+        (
+            action = 'read'
+            AND what_changed IS NULL
+            AND change_class IS NULL
+        )
+        OR (
+            action = 'folder'
+            AND what_changed IS NOT NULL AND length(trim(what_changed)) > 0
+            AND change_class IN ('ordinary', 'consequential')
+        )
+    )
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_workflow_step_task_position
+    ON workflow_step(task_id, position);

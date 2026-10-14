@@ -266,7 +266,31 @@ def task_detail(connection: sqlite3.Connection, task_id: int) -> dict[str, objec
         "implementation_changes": _with_checks(connection, task_id),
         "file_reads": file_read_store.file_reads_for(connection, task_id),
         "requirements": requirement_store.summaries_for_task(connection, task_id),
+        "prerequisites": _prerequisites(connection, task_id),
+        "blocked_by": _blocked_by(connection, task_id),
+        "workflow": _workflow(connection, task_id),
     }
+
+
+def _prerequisites(connection: sqlite3.Connection, task_id: int) -> list[dict[str, object]]:
+    from task_manager.storage import dependency_store
+
+    return [
+        {"id": int(row["id"]), "title": row["title"], "status": row["status"]}
+        for row in dependency_store.prerequisites(connection, task_id)
+    ]
+
+
+def _blocked_by(connection: sqlite3.Connection, task_id: int) -> str | None:
+    from task_manager.domain.dependency import blocked_sentence
+
+    return blocked_sentence(connection, task_id)
+
+
+def _workflow(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
+    from task_manager.domain.workflow import payload
+
+    return payload(connection, task_id)
 
 
 def _with_checks(connection: sqlite3.Connection, task_id: int) -> list[dict[str, object]]:

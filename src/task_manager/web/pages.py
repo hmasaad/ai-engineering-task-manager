@@ -19,7 +19,11 @@ def _render_list(request: Request, message: str | None = None) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
         "list.html",
-        {"tasks": _workspace(request).list_tasks(), "message": message},
+        {
+            "tasks": _workspace(request).list_tasks(),
+            "order": _workspace(request).execution_order(),
+            "message": message,
+        },
     )
 
 
@@ -119,6 +123,64 @@ def unverify(request: Request, task_id: int, criterion_id: int):
     return _after(
         request, task_id, _workspace(request).unverify_criterion(task_id, criterion_id)
     )
+
+
+@router.post("/tasks/{task_id}/prerequisites")
+def add_prerequisite(request: Request, task_id: int, prerequisite_id: str = Form("")):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).add_prerequisite(task_id, _form_int(prerequisite_id)),
+    )
+
+
+@router.post("/tasks/{task_id}/prerequisites/{prerequisite_id}/remove")
+def remove_prerequisite(request: Request, task_id: int, prerequisite_id: int):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).remove_prerequisite(task_id, prerequisite_id),
+    )
+
+
+@router.post("/tasks/{task_id}/workflow-steps")
+def add_workflow_step(
+    request: Request,
+    task_id: int,
+    title: str = Form(""),
+    action: str = Form(""),
+    project: str = Form(""),
+    path: str = Form(""),
+    what_changed: str = Form(""),
+    change_class: str = Form("", alias="class"),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).add_workflow_step(
+            task_id,
+            title,
+            action,
+            project,
+            path,
+            what_changed,
+            change_class or None,
+        ),
+    )
+
+
+@router.post("/tasks/{task_id}/workflow-steps/{step_id}/remove")
+def remove_workflow_step(request: Request, task_id: int, step_id: int):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).remove_workflow_step(task_id, step_id),
+    )
+
+
+@router.post("/tasks/{task_id}/workflow/advance")
+def advance_workflow(request: Request, task_id: int):
+    return _after(request, task_id, _workspace(request).advance_workflow(task_id))
 
 
 @router.post("/tasks/{task_id}/subtasks")

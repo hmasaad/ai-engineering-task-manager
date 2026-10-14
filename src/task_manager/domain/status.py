@@ -86,7 +86,12 @@ def transition(
 def _start(connection: sqlite3.Connection, task: sqlite3.Row, occurred_at: str):
     if task["status"] != "Ready":
         return conflict("The task must be Ready to start work.")
+    from task_manager.domain.dependency import blocked_sentence
+
     task_id = int(task["id"])
+    problem = blocked_sentence(connection, task_id)
+    if problem:
+        return conflict(problem)
     task_store.set_status(connection, task_id, "In Progress", None)
     status_store.append_change(
         connection, task_id, "Ready", "In Progress", occurred_at, "started", None
