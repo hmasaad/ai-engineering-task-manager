@@ -14,6 +14,7 @@ from task_manager.domain import (
     file_read,
     folder,
     implementation,
+    instruction,
     model_file,
     pull_request,
     requirement,
@@ -24,6 +25,8 @@ from task_manager.domain import (
     workflow,
 )
 from task_manager.domain.results import Refusal
+from task_manager.model import HttpModel
+from task_manager.storage import model_config_store
 from task_manager.storage.connection import (
     call_in_transaction,
     connect,
@@ -51,7 +54,7 @@ class Workspace:
         self.engineer_name = ensure_engineer(self.connection, engineer_name)
         self.assistant_name = ensure_assistant(self.connection, assistant_name)
         self.project_root = Path(project_root) if project_root is not None else Path.cwd()
-        self.model = model
+        self.model = model if model is not None else model_config_store.load_model(self.connection)
 
     def close(self) -> None:
         self.connection.close()
@@ -63,6 +66,65 @@ class Workspace:
                 self.connection,
                 lambda conn: operation(conn, occurred_at),
             )
+
+    def model_settings(self) -> dict[str, str | None]:
+        model = self.model
+        if model is None or not getattr(model, "name", None):
+            return {"name": None, "base_url": None, "api_key": None}
+        return {
+            "name": model.name,
+            "base_url": getattr(model, "base_url", None),
+            "api_key": getattr(model, "api_key", None),
+        }
+
+    def configure_model(
+        self,
+        name: str | None,
+        base_url: str | None,
+        api_key: str | None = None,
+    ):
+        with self._lock:
+            result = call_in_transaction(
+                self.connection,
+                lambda conn: instruction.save_model(conn, name, base_url, api_key),
+            )
+        if not isinstance(result, Refusal):
+            self.model = HttpModel(
+                str(result["name"]),
+                str(result["base_url"]),
+                None if result["api_key"] is None else str(result["api_key"]),
+            )
+        return result
+
+    def start_instruction(
+        self,
+        title: str | None,
+        goal: str | None,
+        criterion: str | None,
+        project: str | None,
+        read_path: str | None,
+        file_path: str | None,
+        change_class: str | None,
+        what_changed: str | None,
+    ):
+        root = self.project_root
+        model = self.model
+        return self._run(
+            lambda conn, at: instruction.start_work(
+                conn,
+                title,
+                goal,
+                criterion,
+                project,
+                read_path,
+                file_path,
+                change_class,
+                what_changed,
+                at,
+                root,
+                model,
+            )
+        )
 
     def list_tasks(self) -> list[dict[str, object]]:
         with self._lock:
@@ -108,9 +170,9 @@ class Workspace:
     def remove_workflow_step(self, task_id: int, step_id: int):
         return self._run(lambda conn, _at: workflow.remove(conn, task_id, step_id))
 
-    def advance_workflow(self, task_id: int):
+    def advance_workflow(self, task_id: int, name: str | None = None):
         root = self.project_root
-        prepared = self._run(lambda conn, at: workflow.prepare(conn, task_id, at))
+        prepared = self._run(lambda conn, at: workflow.prepare(conn, task_id, at, name))
         if isinstance(prepared, workflow.ReadyToFinish):
             return self._run(lambda conn, at: workflow.finish(conn, task_id, at, root))
         return prepared

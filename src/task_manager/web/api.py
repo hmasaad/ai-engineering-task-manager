@@ -29,6 +29,30 @@ class WorkflowStepIn(BaseModel):
     change_class: str | None = Field(default=None, alias="class")
 
 
+class AdvanceIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+
+
+class ModelIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+    base_url: str = ""
+    api_key: str = ""
+
+
+class InstructionIn(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+    title: str = ""
+    goal: str = ""
+    criterion: str = ""
+    project: str = ""
+    read_path: str = ""
+    file: str = ""
+    change_class: str | None = Field(default=None, alias="class")
+    what_changed: str = ""
+
+
 class GoalUpdate(BaseModel):
     model_config = ConfigDict(extra="ignore")
     goal: str
@@ -197,6 +221,38 @@ def execution_order(request: Request):
     return request.app.state.workspace.execution_order()
 
 
+@router.get("/model")
+def get_model(request: Request):
+    return request.app.state.workspace.model_settings()
+
+
+@router.post("/model")
+def save_model(request: Request, body: ModelIn | None = None):
+    incoming = body or ModelIn()
+    return _respond(
+        request.app.state.workspace.configure_model(
+            incoming.name, incoming.base_url, incoming.api_key
+        )
+    )
+
+
+@router.post("/instructions")
+def start_instruction(request: Request, body: InstructionIn | None = None):
+    incoming = body or InstructionIn()
+    return _respond(
+        request.app.state.workspace.start_instruction(
+            incoming.title,
+            incoming.goal,
+            incoming.criterion,
+            incoming.project,
+            incoming.read_path,
+            incoming.file,
+            incoming.change_class,
+            incoming.what_changed,
+        )
+    )
+
+
 @router.get("/tasks")
 def list_tasks(request: Request):
     return request.app.state.workspace.list_tasks()
@@ -291,8 +347,9 @@ def remove_workflow_step(request: Request, task_id: int, step_id: int):
 
 
 @router.post("/tasks/{task_id}/workflow/advance")
-def advance_workflow(request: Request, task_id: int):
-    return _respond(request.app.state.workspace.advance_workflow(task_id))
+def advance_workflow(request: Request, task_id: int, body: AdvanceIn | None = None):
+    name = "" if body is None else body.name
+    return _respond(request.app.state.workspace.advance_workflow(task_id, name))
 
 
 @router.post("/tasks/{task_id}/workflow/recover")

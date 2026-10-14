@@ -1,5 +1,7 @@
 """Server-rendered list and task detail. Forms call the same commands as the API."""
 
+import secrets
+
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -34,7 +36,7 @@ def _render_detail(request: Request, task_id: int, message: str | None = None):
     return templates.TemplateResponse(
         request,
         "detail.html",
-        {"task": detail, "message": message},
+        {"task": detail, "message": message, "advance_name": secrets.token_hex(8)},
     )
 
 
@@ -48,6 +50,76 @@ def _after(request: Request, task_id: int, result, fallback_id: int | None = Non
 @router.get("/")
 def list_page(request: Request):
     return _render_list(request)
+
+
+@router.get("/instructions")
+def instructions_page(request: Request):
+    return _render_instructions(request)
+
+
+@router.post("/instructions/model")
+def save_model_page(
+    request: Request,
+    name: str = Form(""),
+    base_url: str = Form(""),
+    api_key: str = Form(""),
+):
+    result = _workspace(request).configure_model(name, base_url, api_key)
+    if isinstance(result, Refusal):
+        return _render_instructions(request, result.message)
+    return RedirectResponse("/instructions", status_code=303)
+
+
+@router.post("/instructions")
+def start_instruction_page(
+    request: Request,
+    title: str = Form(""),
+    goal: str = Form(""),
+    criterion: str = Form(""),
+    project: str = Form(""),
+    read_path: str = Form(""),
+    file: str = Form(""),
+    change_class: str = Form("", alias="class"),
+    what_changed: str = Form(""),
+):
+    result = _workspace(request).start_instruction(
+        title,
+        goal,
+        criterion,
+        project,
+        read_path,
+        file,
+        change_class,
+        what_changed,
+    )
+    if isinstance(result, Refusal):
+        return _render_instructions(
+            request,
+            result.message,
+            {
+                "title": title,
+                "goal": goal,
+                "criterion": criterion,
+                "project": project,
+                "read_path": read_path,
+                "file": file,
+                "class": change_class,
+                "what": what_changed,
+            },
+        )
+    return RedirectResponse(f"/tasks/{result['id']}", status_code=303)
+
+
+def _render_instructions(request: Request, message: str | None = None, form: dict | None = None):
+    return templates.TemplateResponse(
+        request,
+        "instructions.html",
+        {
+            "model": _workspace(request).model_settings(),
+            "message": message,
+            "form": form or {},
+        },
+    )
 
 
 @router.post("/tasks")
@@ -179,8 +251,8 @@ def remove_workflow_step(request: Request, task_id: int, step_id: int):
 
 
 @router.post("/tasks/{task_id}/workflow/advance")
-def advance_workflow(request: Request, task_id: int):
-    return _after(request, task_id, _workspace(request).advance_workflow(task_id))
+def advance_workflow(request: Request, task_id: int, name: str = Form("")):
+    return _after(request, task_id, _workspace(request).advance_workflow(task_id, name))
 
 
 @router.post("/tasks/{task_id}/workflow/recover")

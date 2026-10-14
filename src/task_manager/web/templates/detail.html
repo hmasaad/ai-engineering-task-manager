@@ -227,6 +227,8 @@
 </form>
 {% elif task.status == "In Progress" and task.workflow.steps and not task.workflow.finished %}
 <form method="post" action="/tasks/{{ task.id }}/workflow/advance">
+  <label for="advance-name">Advance name</label>
+  <input id="advance-name" name="name" type="text" value="{{ advance_name }}">
   <p><button type="submit">Advance workflow</button></p>
 </form>
 {% endif %}

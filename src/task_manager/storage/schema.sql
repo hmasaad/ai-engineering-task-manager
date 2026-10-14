@@ -5,6 +5,19 @@ CREATE TABLE IF NOT EXISTS workspace (
     engineer_name TEXT NOT NULL CHECK (length(trim(engineer_name)) > 0)
 );
 
+CREATE TABLE IF NOT EXISTS configured_model (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    model_name TEXT NOT NULL CHECK (length(trim(model_name)) > 0),
+    model_text TEXT NOT NULL CHECK (length(trim(model_text)) > 0)
+);
+
+CREATE TABLE IF NOT EXISTS model_service (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    model_name TEXT NOT NULL CHECK (length(trim(model_name)) > 0),
+    base_url TEXT NOT NULL CHECK (length(trim(base_url)) > 0),
+    api_key TEXT CHECK (api_key IS NULL OR length(trim(api_key)) > 0)
+);
+
 CREATE TABLE IF NOT EXISTS task (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL CHECK (length(trim(title)) > 0),
@@ -333,3 +346,10 @@ CREATE TABLE IF NOT EXISTS workflow_event (
 
 CREATE INDEX IF NOT EXISTS idx_workflow_event_task
     ON workflow_event(task_id, id);
+
+CREATE TABLE IF NOT EXISTS workflow_advance (
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    step_id INTEGER NOT NULL REFERENCES workflow_step(id),
+    PRIMARY KEY (task_id, name)
+);

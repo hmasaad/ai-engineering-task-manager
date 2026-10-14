@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Instructions{% endblock %}
+{% block body %}
+<h1>Instructions</h1>
+<p class="muted">Save the model service, then describe one task. Starting work reads one file and asks that model for the new text of one file.</p>
+{% if message %}<p class="message" role="alert">{{ message }}</p>{% endif %}
+<h2>Model</h2>
+<form method="post" action="/instructions/model">
+  <label for="model-name">Model name</label>
+  <input id="model-name" name="name" type="text" value="{{ model.name or '' }}">
+  <label for="model-address">Model address</label>
+  <input id="model-address" name="base_url" type="text" value="{{ model.base_url or '' }}">
+  <label for="model-key">API key</label>
+  <input id="model-key" name="api_key" type="password" value="{{ model.api_key or '' }}">
+  <p><button type="submit">Save model</button></p>
+</form>
+<h2>Task</h2>
+<form method="post" action="/instructions">
+  <label for="instruction-title">Title</label>
+  <input id="instruction-title" name="title" type="text" value="{{ form.title or '' }}">
+  <label for="instruction-goal">Goal</label>
+  <textarea id="instruction-goal" name="goal" rows="2">{{ form.goal or '' }}</textarea>
+  <label for="instruction-criterion">Acceptance criterion</label>
+  <input id="instruction-criterion" name="criterion" type="text" value="{{ form.criterion or '' }}">
+  <label for="instruction-project">Project</label>
+  <input id="instruction-project" name="project" type="text" value="{{ form.project or '' }}">
+  <label for="instruction-read">File to read</label>
+  <input id="instruction-read" name="read_path" type="text" value="{{ form.read_path or '' }}">
+  <label for="instruction-file">File to change</label>
+  <input id="instruction-file" name="file" type="text" value="{{ form.file or '' }}">
+  <label for="instruction-class">Ordinary or consequential</label>
+  <select id="instruction-class" name="class">
+    <option value="">Choose</option>
+    <option value="ordinary" {% if form.class == "ordinary" %}selected{% endif %}>Ordinary</option>
+    <option value="consequential" {% if form.class == "consequential" %}selected{% endif %}>Consequential</option>
+  </select>
+  <label for="instruction-what">What changed</label>
+  <textarea id="instruction-what" name="what_changed" rows="2">{{ form.what or '' }}</textarea>
+  <p><button type="submit">Start work</button></p>
+</form>
+{% endblock %}

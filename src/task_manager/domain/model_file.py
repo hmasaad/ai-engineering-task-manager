@@ -18,6 +18,7 @@ from task_manager.domain.implementation import (
 )
 from task_manager.domain.results import Refusal, bad_request, conflict, missing
 from task_manager.domain.text import clean
+from task_manager.model import ModelUnavailable
 from task_manager.storage import model_store, task_store
 
 CHOOSE_READ = "Choose the file read this change uses."
@@ -25,6 +26,7 @@ READ_NOT_FOUND = "File read not found."
 READ_ON_TASK = "The change must name a file read on that task."
 CHOOSE_MODEL = "Choose the model this change uses."
 MODEL_NO_TEXT = "The model did not return file text."
+MODEL_UNREACHABLE = "The model service could not be reached."
 
 
 def record_model_file(
@@ -74,12 +76,14 @@ def record_model_file(
     if model is None or not clean(getattr(model, "name", None)):
         return bad_request(CHOOSE_MODEL)
     detail = task_store.task_detail(connection, int(task["id"]))
-    prompt = _prompt(detail, stored_read, named_project, placed.relative)
+    prompt = _prompt(detail, stored_read, named_project, placed.relative, account)
     try:
         output = model.complete(prompt)
+    except ModelUnavailable:
+        return bad_request(MODEL_UNREACHABLE)
     except Exception:
         return bad_request(MODEL_NO_TEXT)
-    if not isinstance(output, str):
+    if not isinstance(output, str) or not output.strip():
         return bad_request(MODEL_NO_TEXT)
     recorded = implementation.record_assistant(
         connection,
@@ -107,7 +111,13 @@ def record_model_file(
     return _detail(connection, int(task["id"]))
 
 
-def _prompt(task: dict, stored_read: sqlite3.Row, project: str, file_path: str) -> str:
+def _prompt(
+    task: dict,
+    stored_read: sqlite3.Row,
+    project: str,
+    file_path: str,
+    what_changed: str,
+) -> str:
     goal = task["goal"] or ""
     criteria = [f"- {item['text']}" for item in task["criteria"]] or ["-"]
     return (
@@ -116,8 +126,10 @@ def _prompt(task: dict, stored_read: sqlite3.Row, project: str, file_path: str) 
         f"Criteria:\n"
         + "\n".join(criteria)
         + "\n"
+        f"What changed: {what_changed}\n"
         f"File read: {stored_read['file_path']}\n"
         f"{stored_read['file_text']}\n"
         f"Project: {project}\n"
         f"File: {file_path}\n"
+        "Return only the full text of the file.\n"
     )

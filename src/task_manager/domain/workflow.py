@@ -106,21 +106,39 @@ def remove(connection: sqlite3.Connection, task_id: int, step_id: int):
     return _detail(connection, int(task["id"]))
 
 
-def prepare(connection: sqlite3.Connection, task_id: int, occurred_at: str):
+def prepare(
+    connection: sqlite3.Connection,
+    task_id: int,
+    occurred_at: str,
+    name: str | None = None,
+):
     task = task_store.row_task(connection, task_id)
     if task is None:
         return missing("Task not found.")
     status_refusal = _record_status(task["status"])
     if status_refusal is not None:
         return status_refusal
+    kept_name = clean(name)
+    if kept_name:
+        prior = workflow_store.row_advance(connection, int(task["id"]), kept_name)
+        if prior is not None:
+            return _same_advance(connection, prior, occurred_at)
     current = _unfinished(connection, int(task["id"]))
     if current is None:
         return conflict(NO_STEP)
     if current["state"] == "Running":
         return conflict(RECOVER_FIRST)
     if current["state"] == "Waiting":
+        if not _claim(connection, int(task["id"]), kept_name, int(current["id"])):
+            return _repeat_saved(connection, int(task["id"]), kept_name, occurred_at)
         _settle(connection, current, occurred_at)
         return _detail(connection, int(task["id"]))
+    if current["state"] == "Failed" and current["change_id"] is not None:
+        if not _claim(connection, int(task["id"]), kept_name, int(current["id"])):
+            return _repeat_saved(connection, int(task["id"]), kept_name, occurred_at)
+        return _detail(connection, int(task["id"]))
+    if not _claim(connection, int(task["id"]), kept_name, int(current["id"])):
+        return _repeat_saved(connection, int(task["id"]), kept_name, occurred_at)
     kept_change = None if current["change_id"] is None else int(current["change_id"])
     workflow_store.update_step(connection, int(current["id"]), "Running", None, kept_change)
     workflow_store.insert_attempt(connection, int(current["id"]), _baseline(connection, current))
@@ -143,7 +161,11 @@ def finish(
     current = _unfinished(connection, int(task["id"]))
     if current is None or current["state"] != "Running":
         return _detail(connection, int(task["id"]))
-    _perform(connection, current, occurred_at, project_root)
+    if not _apply_stored_effect(connection, current, occurred_at):
+        if workflow_store.row_attempt(connection, int(current["id"])) is None:
+            _set_outcome(connection, current, "Failed", INTERRUPTED, None, occurred_at)
+        else:
+            _perform(connection, current, occurred_at, project_root)
     workflow_store.delete_attempt(connection, int(current["id"]))
     return _detail(connection, int(task["id"]))
 
@@ -249,30 +271,82 @@ def _recover_running(
     step: sqlite3.Row,
     occurred_at: str,
 ) -> None:
+    if _apply_stored_effect(connection, step, occurred_at):
+        return
     attempt = workflow_store.row_attempt(connection, int(step["id"]))
-    if attempt is None:
+    if attempt is None or step["action"] == "read":
         _set_outcome(connection, step, "Failed", INTERRUPTED, None, occurred_at)
         return
+    kept_change = None if step["change_id"] is None else int(step["change_id"])
+    _set_outcome(connection, step, "Failed", INTERRUPTED, kept_change, occurred_at)
+
+
+def _apply_stored_effect(
+    connection: sqlite3.Connection,
+    step: sqlite3.Row,
+    occurred_at: str,
+) -> bool:
+    attempt = workflow_store.row_attempt(connection, int(step["id"]))
+    if attempt is None:
+        return False
     before = int(attempt["effect_before"])
     task_id = int(step["task_id"])
     if step["action"] == "read":
         from task_manager.storage.file_read_store import file_reads_for
 
-        if len(file_reads_for(connection, task_id)) > before:
-            _set_outcome(connection, step, "Completed", None, None, occurred_at)
-        else:
-            _set_outcome(connection, step, "Failed", INTERRUPTED, None, occurred_at)
-        return
+        if len(file_reads_for(connection, task_id)) <= before:
+            return False
+        _set_outcome(connection, step, "Completed", None, None, occurred_at)
+        return True
     created = [
         item
         for item in implementation_store.changes_for(connection, task_id)
         if int(item["id"]) > before
     ]
     if not created:
-        kept_change = None if step["change_id"] is None else int(step["change_id"])
-        _set_outcome(connection, step, "Failed", INTERRUPTED, kept_change, occurred_at)
-        return
+        return False
     _apply_change(connection, step, created[-1], occurred_at)
+    return True
+
+
+def _claim(
+    connection: sqlite3.Connection,
+    task_id: int,
+    name: str | None,
+    step_id: int,
+) -> bool:
+    if name is None:
+        return True
+    return workflow_store.insert_advance(connection, task_id, name, step_id)
+
+
+def _repeat_saved(
+    connection: sqlite3.Connection,
+    task_id: int,
+    name: str | None,
+    occurred_at: str,
+):
+    if name is None:
+        return _detail(connection, task_id)
+    prior = workflow_store.row_advance(connection, task_id, name)
+    if prior is None:
+        return _detail(connection, task_id)
+    return _same_advance(connection, prior, occurred_at)
+
+
+def _same_advance(
+    connection: sqlite3.Connection,
+    prior: sqlite3.Row,
+    occurred_at: str,
+):
+    step = workflow_store.row_step(connection, int(prior["step_id"]))
+    if step is None:
+        return _detail(connection, int(prior["task_id"]))
+    if step["state"] == "Running":
+        return conflict(RECOVER_FIRST)
+    if step["state"] == "Waiting":
+        _settle(connection, step, occurred_at)
+    return _detail(connection, int(step["task_id"]))
 
 
 def _apply_change(

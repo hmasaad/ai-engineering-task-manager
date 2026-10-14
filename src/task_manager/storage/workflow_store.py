@@ -95,6 +95,35 @@ def delete_attempt(connection: sqlite3.Connection, step_id: int) -> None:
     connection.execute("DELETE FROM workflow_attempt WHERE step_id = ?", (step_id,))
 
 
+def insert_advance(
+    connection: sqlite3.Connection, task_id: int, name: str, step_id: int
+) -> bool:
+    try:
+        connection.execute(
+            """
+            INSERT INTO workflow_advance (task_id, name, step_id)
+            VALUES (?, ?, ?)
+            """,
+            (task_id, name, step_id),
+        )
+    except sqlite3.IntegrityError:
+        return False
+    return True
+
+
+def row_advance(
+    connection: sqlite3.Connection, task_id: int, name: str
+) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT task_id, name, step_id
+        FROM workflow_advance
+        WHERE task_id = ? AND name = ?
+        """,
+        (task_id, name),
+    ).fetchone()
+
+
 def insert_event(
     connection: sqlite3.Connection,
     task_id: int,
