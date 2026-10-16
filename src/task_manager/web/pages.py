@@ -280,6 +280,27 @@ def deliver_outbox(request: Request, task_id: int, name: str = Form("")):
     return _after(request, task_id, _workspace(request).deliver_outbox(task_id, name))
 
 
+@router.post("/tasks/{task_id}/workflow/checkpoints")
+def take_checkpoint(request: Request, task_id: int, name: str = Form("")):
+    return _after(request, task_id, _workspace(request).take_checkpoint(task_id, name))
+
+
+@router.post("/tasks/{task_id}/workflow/checkpoints/{checkpoint_id}/restore")
+def restore_checkpoint(request: Request, task_id: int, checkpoint_id: int):
+    return _after(
+        request, task_id, _workspace(request).restore_checkpoint(task_id, checkpoint_id)
+    )
+
+
+@router.post("/tasks/{task_id}/workflow/outbox/reject")
+def reject_outbox(
+    request: Request, task_id: int, name: str = Form(""), reason: str = Form("")
+):
+    return _after(
+        request, task_id, _workspace(request).reject_outbox(task_id, name, reason)
+    )
+
+
 @router.post("/tasks/{task_id}/workflow/compensate")
 def compensate_workflow(request: Request, task_id: int, reason: str = Form("")):
     return _after(request, task_id, _workspace(request).compensate_workflow(task_id, reason))

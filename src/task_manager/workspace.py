@@ -191,12 +191,31 @@ class Workspace:
         with self._lock:
             return workflow.replay(self.connection, task_id)
 
+    def workflow_trace(self, task_id: int):
+        with self._lock:
+            return workflow.trace(self.connection, task_id)
+
+    def workflow_checkpoints(self, task_id: int):
+        with self._lock:
+            return workflow.workflow_checkpoints(self.connection, task_id)
+
+    def take_checkpoint(self, task_id: int, name: str | None):
+        return self._run(lambda conn, at: workflow.take_checkpoint(conn, task_id, name, at))
+
+    def restore_checkpoint(self, task_id: int, checkpoint_id: int):
+        return self._run(
+            lambda conn, at: workflow.restore_checkpoint(conn, task_id, checkpoint_id, at)
+        )
+
     def replay_workflow_execution(self, task_id: int):
         with self._lock:
             return workflow.replay_execution(self.connection, task_id)
 
     def deliver_outbox(self, task_id: int, name: str | None):
         return self._run(lambda conn, at: workflow.deliver(conn, task_id, name, at))
+
+    def reject_outbox(self, task_id: int, name: str | None, reason: str | None):
+        return self._run(lambda conn, at: workflow.reject(conn, task_id, name, reason, at))
 
     def compensate_workflow(self, task_id: int, reason: str | None):
         return self._run(lambda conn, at: workflow.compensate(conn, task_id, reason, at))

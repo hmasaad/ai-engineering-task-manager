@@ -173,6 +173,95 @@ def events(connection: sqlite3.Connection, task_id: int) -> list[sqlite3.Row]:
     ).fetchall()
 
 
+def trace_for_task(connection: sqlite3.Connection, task_id: int) -> sqlite3.Row | None:
+    return connection.execute(
+        "SELECT id, task_id, recorded_at FROM workflow_trace WHERE task_id = ?",
+        (task_id,),
+    ).fetchone()
+
+
+def ensure_trace(connection: sqlite3.Connection, task_id: int, recorded_at: str) -> int:
+    existing = trace_for_task(connection, task_id)
+    if existing is not None:
+        return int(existing["id"])
+    cursor = connection.execute(
+        "INSERT INTO workflow_trace (task_id, recorded_at) VALUES (?, ?)",
+        (task_id, recorded_at),
+    )
+    return int(cursor.lastrowid)
+
+
+def spans_for_trace(connection: sqlite3.Connection, trace_id: int) -> list[sqlite3.Row]:
+    return connection.execute(
+        """
+        SELECT id, parent_id, name, state, detail, started_at, ended_at
+        FROM workflow_span
+        WHERE trace_id = ?
+        ORDER BY id ASC
+        """,
+        (trace_id,),
+    ).fetchall()
+
+
+def root_span(connection: sqlite3.Connection, trace_id: int) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT id FROM workflow_span
+        WHERE trace_id = ?
+        ORDER BY id ASC
+        LIMIT 1
+        """,
+        (trace_id,),
+    ).fetchone()
+
+
+def open_span(connection: sqlite3.Connection, step_id: int) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT id FROM workflow_span
+        WHERE step_id = ? AND ended_at IS NULL
+        """,
+        (step_id,),
+    ).fetchone()
+
+
+def insert_span(
+    connection: sqlite3.Connection,
+    trace_id: int,
+    step_id: int,
+    parent_id: int | None,
+    name: str,
+    started_at: str,
+) -> int:
+    cursor = connection.execute(
+        """
+        INSERT INTO workflow_span (
+            trace_id, step_id, parent_id, name, state, started_at
+        )
+        VALUES (?, ?, ?, ?, 'Running', ?)
+        """,
+        (trace_id, step_id, parent_id, name, started_at),
+    )
+    return int(cursor.lastrowid)
+
+
+def close_span(
+    connection: sqlite3.Connection,
+    span_id: int,
+    state: str,
+    detail: str | None,
+    ended_at: str,
+) -> None:
+    connection.execute(
+        """
+        UPDATE workflow_span
+        SET state = ?, detail = ?, ended_at = ?
+        WHERE id = ?
+        """,
+        (state, detail, ended_at, span_id),
+    )
+
+
 def update_step(
     connection: sqlite3.Connection,
     step_id: int,
@@ -354,10 +443,13 @@ def oldest_pending_outbox(connection: sqlite3.Connection, task_id: int) -> sqlit
         SELECT id, step_id, effect, state
         FROM workflow_outbox
         WHERE task_id = ? AND state = 'Pending'
+          AND id NOT IN (
+              SELECT outbox_id FROM workflow_dead_letter WHERE task_id = ?
+          )
         ORDER BY id ASC
         LIMIT 1
         """,
-        (task_id,),
+        (task_id, task_id),
     ).fetchone()
 
 
@@ -409,6 +501,96 @@ def inbox_entries(connection: sqlite3.Connection, task_id: int) -> list[sqlite3.
         """,
         (task_id,),
     ).fetchall()
+
+
+def poison_entries(connection: sqlite3.Connection, task_id: int) -> list[sqlite3.Row]:
+    return connection.execute(
+        """
+        SELECT name, outbox_id, reason
+        FROM workflow_poison
+        WHERE task_id = ?
+        ORDER BY recorded_at ASC, name ASC
+        """,
+        (task_id,),
+    ).fetchall()
+
+
+def poison_entry(connection: sqlite3.Connection, task_id: int, name: str) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT task_id, name, outbox_id, reason
+        FROM workflow_poison
+        WHERE task_id = ? AND name = ?
+        """,
+        (task_id, name),
+    ).fetchone()
+
+
+def poison_count(connection: sqlite3.Connection, outbox_id: int) -> int:
+    row = connection.execute(
+        "SELECT COUNT(*) AS count FROM workflow_poison WHERE outbox_id = ?",
+        (outbox_id,),
+    ).fetchone()
+    return int(row["count"])
+
+
+def insert_poison(
+    connection: sqlite3.Connection,
+    task_id: int,
+    name: str,
+    outbox_id: int,
+    reason: str,
+    recorded_at: str,
+) -> bool:
+    try:
+        connection.execute(
+            """
+            INSERT INTO workflow_poison (task_id, name, outbox_id, reason, recorded_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (task_id, name, outbox_id, reason, recorded_at),
+        )
+    except sqlite3.IntegrityError:
+        return False
+    return True
+
+
+def dead_letters(connection: sqlite3.Connection, task_id: int) -> list[sqlite3.Row]:
+    return connection.execute(
+        """
+        SELECT
+            workflow_dead_letter.outbox_id,
+            workflow_step.title,
+            workflow_outbox.effect,
+            workflow_dead_letter.reason
+        FROM workflow_dead_letter
+        JOIN workflow_outbox ON workflow_outbox.id = workflow_dead_letter.outbox_id
+        JOIN workflow_step ON workflow_step.id = workflow_outbox.step_id
+        WHERE workflow_dead_letter.task_id = ?
+        ORDER BY workflow_dead_letter.id ASC
+        """,
+        (task_id,),
+    ).fetchall()
+
+
+def insert_dead_letter(
+    connection: sqlite3.Connection,
+    task_id: int,
+    outbox_id: int,
+    reason: str,
+    recorded_at: str,
+) -> bool:
+    try:
+        connection.execute(
+            """
+            INSERT INTO workflow_dead_letter (task_id, outbox_id, reason, recorded_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (task_id, outbox_id, reason, recorded_at),
+        )
+    except sqlite3.IntegrityError:
+        return False
+    return True
 
 
 def compensations(connection: sqlite3.Connection, task_id: int) -> list[sqlite3.Row]:
@@ -494,3 +676,94 @@ def settle_compensation(
         """,
         (state, evidence, decline_reason, compensation_id),
     )
+
+
+def checkpoint_by_name(
+    connection: sqlite3.Connection, task_id: int, name: str
+) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT id, name FROM workflow_checkpoint
+        WHERE task_id = ? AND name = ?
+        """,
+        (task_id, name),
+    ).fetchone()
+
+
+def checkpoint_on_task(
+    connection: sqlite3.Connection, task_id: int, checkpoint_id: int
+) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT id, name FROM workflow_checkpoint
+        WHERE task_id = ? AND id = ?
+        """,
+        (task_id, checkpoint_id),
+    ).fetchone()
+
+
+def insert_checkpoint(
+    connection: sqlite3.Connection, task_id: int, name: str, recorded_at: str
+) -> int | None:
+    try:
+        cursor = connection.execute(
+            """
+            INSERT INTO workflow_checkpoint (task_id, name, recorded_at)
+            VALUES (?, ?, ?)
+            """,
+            (task_id, name, recorded_at),
+        )
+    except sqlite3.IntegrityError:
+        return None
+    return int(cursor.lastrowid)
+
+
+def insert_checkpoint_step(
+    connection: sqlite3.Connection,
+    checkpoint_id: int,
+    step_id: int,
+    position: int,
+    state: str,
+    detail: str | None,
+) -> None:
+    connection.execute(
+        """
+        INSERT INTO workflow_checkpoint_step (
+            checkpoint_id, step_id, position, state, detail
+        )
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (checkpoint_id, step_id, position, state, detail),
+    )
+
+
+def checkpoint_steps(connection: sqlite3.Connection, checkpoint_id: int) -> list[sqlite3.Row]:
+    return connection.execute(
+        """
+        SELECT step_id, state, position
+        FROM workflow_checkpoint_step
+        WHERE checkpoint_id = ?
+        ORDER BY position ASC
+        """,
+        (checkpoint_id,),
+    ).fetchall()
+
+
+def checkpoints(connection: sqlite3.Connection, task_id: int) -> list[sqlite3.Row]:
+    return connection.execute(
+        """
+        SELECT
+            workflow_checkpoint.id,
+            workflow_checkpoint.name,
+            workflow_step.title,
+            workflow_checkpoint_step.state,
+            workflow_checkpoint_step.position
+        FROM workflow_checkpoint
+        JOIN workflow_checkpoint_step
+          ON workflow_checkpoint_step.checkpoint_id = workflow_checkpoint.id
+        JOIN workflow_step ON workflow_step.id = workflow_checkpoint_step.step_id
+        WHERE workflow_checkpoint.task_id = ?
+        ORDER BY workflow_checkpoint.id ASC, workflow_checkpoint_step.position ASC
+        """,
+        (task_id,),
+    ).fetchall()

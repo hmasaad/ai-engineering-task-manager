@@ -414,3 +414,55 @@ CREATE TABLE IF NOT EXISTS workflow_compensation (
     decline_reason TEXT CHECK (decline_reason IS NULL OR length(trim(decline_reason)) > 0),
     recorded_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS workflow_poison (
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    outbox_id INTEGER NOT NULL REFERENCES workflow_outbox(id),
+    reason TEXT NOT NULL CHECK (length(trim(reason)) > 0),
+    recorded_at TEXT NOT NULL,
+    PRIMARY KEY (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS workflow_dead_letter (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    outbox_id INTEGER NOT NULL UNIQUE REFERENCES workflow_outbox(id),
+    reason TEXT NOT NULL CHECK (length(trim(reason)) > 0),
+    recorded_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS workflow_trace (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL UNIQUE REFERENCES task(id),
+    recorded_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS workflow_span (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trace_id INTEGER NOT NULL REFERENCES workflow_trace(id),
+    step_id INTEGER NOT NULL REFERENCES workflow_step(id),
+    parent_id INTEGER REFERENCES workflow_span(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    state TEXT NOT NULL CHECK (state IN ('Running', 'Completed', 'Failed', 'Waiting')),
+    detail TEXT CHECK (detail IS NULL OR length(trim(detail)) > 0),
+    started_at TEXT NOT NULL,
+    ended_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS workflow_checkpoint (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS workflow_checkpoint_step (
+    checkpoint_id INTEGER NOT NULL REFERENCES workflow_checkpoint(id),
+    step_id INTEGER NOT NULL REFERENCES workflow_step(id),
+    position INTEGER NOT NULL CHECK (position >= 1),
+    state TEXT NOT NULL CHECK (state IN ('Pending', 'Completed', 'Failed', 'Waiting')),
+    detail TEXT CHECK (detail IS NULL OR length(trim(detail)) > 0),
+    PRIMARY KEY (checkpoint_id, step_id)
+);

@@ -42,6 +42,15 @@ MISSING_EFFECT = "the stored effect is missing."
 STEP_NOT_RUN = "the step has not run."
 NAME_DELIVERY = "Name this delivery."
 NO_OUTBOX = "There is no outbox message to deliver."
+NAME_REJECTION = "Name this rejection."
+NAME_POISON = "Name why this message is poison."
+NO_REJECT = "There is no outbox message to reject."
+POISON_LIMIT = 3
+NAME_CHECKPOINT = "Name this checkpoint."
+NO_CHECKPOINT_WORKFLOW = "There is no workflow to checkpoint."
+CHECKPOINT_NOT_ON_TASK = "That checkpoint is not on this task."
+WORKFLOW_CHANGED = "The workflow has changed since this checkpoint."
+STORED_EFFECT = "A stored effect cannot be restored over."
 NAME_COMPENSATION = "Name why this step is compensated."
 NO_COMPENSATE = "There is no step to compensate."
 NOT_FAILED = "The workflow has not failed."
@@ -244,6 +253,91 @@ def replay(connection: sqlite3.Connection, task_id: int):
     return {"events": _events(connection, task_id)}
 
 
+def trace(connection: sqlite3.Connection, task_id: int):
+    if task_store.row_task(connection, task_id) is None:
+        return missing("Task not found.")
+    report = _trace_report(connection, task_id)
+    if report is None:
+        return {"id": None, "spans": []}
+    return report
+
+
+def workflow_checkpoints(connection: sqlite3.Connection, task_id: int):
+    if task_store.row_task(connection, task_id) is None:
+        return missing("Task not found.")
+    return {"checkpoints": _checkpoints(connection, task_id)}
+
+
+def take_checkpoint(
+    connection: sqlite3.Connection, task_id: int, name: str | None, occurred_at: str
+):
+    task = task_store.row_task(connection, task_id)
+    if task is None:
+        return missing("Task not found.")
+    status_refusal = _record_status(task["status"])
+    if status_refusal is not None:
+        return status_refusal
+    kept = clean(name)
+    if not kept:
+        return bad_request(NAME_CHECKPOINT)
+    rows = workflow_store.steps(connection, int(task["id"]))
+    if not rows:
+        return conflict(NO_CHECKPOINT_WORKFLOW)
+    if any(row["state"] == "Running" for row in rows):
+        return conflict(RECOVER_FIRST)
+    if workflow_store.checkpoint_by_name(connection, int(task["id"]), kept) is not None:
+        return _detail(connection, int(task["id"]))
+    checkpoint_id = workflow_store.insert_checkpoint(
+        connection, int(task["id"]), kept, occurred_at
+    )
+    if checkpoint_id is None:
+        return _detail(connection, int(task["id"]))
+    for position, row in enumerate(rows, start=1):
+        workflow_store.insert_checkpoint_step(
+            connection,
+            checkpoint_id,
+            int(row["id"]),
+            position,
+            row["state"],
+            row["detail"] or None,
+        )
+    return _detail(connection, int(task["id"]))
+
+
+def restore_checkpoint(
+    connection: sqlite3.Connection, task_id: int, checkpoint_id: int, occurred_at: str
+):
+    del occurred_at
+    task = task_store.row_task(connection, task_id)
+    if task is None:
+        return missing("Task not found.")
+    status_refusal = _record_status(task["status"])
+    if status_refusal is not None:
+        return status_refusal
+    rows = workflow_store.steps(connection, int(task["id"]))
+    if any(row["state"] == "Running" for row in rows):
+        return conflict(RECOVER_FIRST)
+    saved = workflow_store.checkpoint_on_task(connection, int(task["id"]), checkpoint_id)
+    if saved is None:
+        return conflict(CHECKPOINT_NOT_ON_TASK)
+    snapshot = workflow_store.checkpoint_steps(connection, int(saved["id"]))
+    current_ids = {int(row["id"]) for row in rows}
+    saved_ids = {int(row["step_id"]) for row in snapshot}
+    if current_ids != saved_ids:
+        return conflict(WORKFLOW_CHANGED)
+    saved_state = {int(row["step_id"]): row["state"] for row in snapshot}
+    rewound: list[sqlite3.Row] = []
+    for row in rows:
+        if row["state"] != "Failed" or saved_state[int(row["id"])] != "Pending":
+            continue
+        if row["change_id"] is not None:
+            return conflict(STORED_EFFECT)
+        rewound.append(row)
+    for row in rewound:
+        workflow_store.update_step(connection, int(row["id"]), "Pending", None, None)
+    return _detail(connection, int(task["id"]))
+
+
 def replay_execution(connection: sqlite3.Connection, task_id: int):
     if task_store.row_task(connection, task_id) is None:
         return missing("Task not found.")
@@ -339,14 +433,29 @@ def payload(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
                 "id": int(row["id"]),
                 "title": row["title"],
                 "effect": row["effect"],
-                "state": row["state"],
+                "state": "Dead" if int(row["id"]) in _dead_ids(connection, task_id) else row["state"],
             }
             for row in workflow_store.outbox_messages(connection, task_id)
+        ],
+        "poison": [
+            {"name": row["name"], "outbox_id": int(row["outbox_id"]), "reason": row["reason"]}
+            for row in workflow_store.poison_entries(connection, task_id)
+        ],
+        "dead_letters": [
+            {
+                "outbox_id": int(row["outbox_id"]),
+                "title": row["title"],
+                "effect": row["effect"],
+                "reason": row["reason"],
+            }
+            for row in workflow_store.dead_letters(connection, task_id)
         ],
         "inbox": [
             {"name": row["name"], "outbox_id": int(row["outbox_id"])}
             for row in workflow_store.inbox_entries(connection, task_id)
         ],
+        "trace": _trace_report(connection, task_id),
+        "checkpoints": _checkpoints(connection, task_id),
     }
 
 
@@ -442,6 +551,44 @@ def deliver(connection: sqlite3.Connection, task_id: int, name: str | None, occu
         connection, int(task["id"]), kept, int(pending["id"]), occurred_at
     )
     return _detail(connection, int(task["id"]))
+
+
+def reject(
+    connection: sqlite3.Connection,
+    task_id: int,
+    name: str | None,
+    reason: str | None,
+    occurred_at: str,
+):
+    task = task_store.row_task(connection, task_id)
+    if task is None:
+        return missing("Task not found.")
+    status_refusal = _record_status(task["status"])
+    if status_refusal is not None:
+        return status_refusal
+    kept_name = clean(name)
+    if not kept_name:
+        return bad_request(NAME_REJECTION)
+    kept_reason = clean(reason)
+    if not kept_reason:
+        return bad_request(NAME_POISON)
+    if workflow_store.poison_entry(connection, int(task["id"]), kept_name) is not None:
+        return _detail(connection, int(task["id"]))
+    pending = workflow_store.oldest_pending_outbox(connection, int(task["id"]))
+    if pending is None:
+        return conflict(NO_REJECT)
+    workflow_store.insert_poison(
+        connection, int(task["id"]), kept_name, int(pending["id"]), kept_reason, occurred_at
+    )
+    if workflow_store.poison_count(connection, int(pending["id"])) >= POISON_LIMIT:
+        workflow_store.insert_dead_letter(
+            connection, int(task["id"]), int(pending["id"]), kept_reason, occurred_at
+        )
+    return _detail(connection, int(task["id"]))
+
+
+def _dead_ids(connection: sqlite3.Connection, task_id: int) -> set[int]:
+    return {int(row["outbox_id"]) for row in workflow_store.dead_letters(connection, task_id)}
 
 
 def compensate(
@@ -834,6 +981,60 @@ def _remember(
         detail,
         occurred_at,
     )
+    if state == "Running":
+        _open_span(connection, step, occurred_at)
+    else:
+        _close_span(connection, step, state, detail, occurred_at)
+
+
+def _open_span(connection: sqlite3.Connection, step: sqlite3.Row, occurred_at: str) -> None:
+    if workflow_store.open_span(connection, int(step["id"])) is not None:
+        return
+    trace_id = workflow_store.ensure_trace(connection, int(step["task_id"]), occurred_at)
+    root = workflow_store.root_span(connection, trace_id)
+    parent_id = None if root is None else int(root["id"])
+    workflow_store.insert_span(
+        connection,
+        trace_id,
+        int(step["id"]),
+        parent_id,
+        step["title"],
+        occurred_at,
+    )
+
+
+def _close_span(
+    connection: sqlite3.Connection,
+    step: sqlite3.Row,
+    state: str,
+    detail: str | None,
+    occurred_at: str,
+) -> None:
+    opened = workflow_store.open_span(connection, int(step["id"]))
+    if opened is None:
+        return
+    workflow_store.close_span(connection, int(opened["id"]), state, detail, occurred_at)
+
+
+def _trace_report(connection: sqlite3.Connection, task_id: int) -> dict[str, object] | None:
+    stored = workflow_store.trace_for_task(connection, task_id)
+    if stored is None:
+        return None
+    return {
+        "id": int(stored["id"]),
+        "spans": [
+            {
+                "id": int(row["id"]),
+                "parent_id": None if row["parent_id"] is None else int(row["parent_id"]),
+                "name": row["name"],
+                "state": row["state"],
+                "detail": row["detail"],
+                "started_at": row["started_at"],
+                "ended_at": row["ended_at"],
+            }
+            for row in workflow_store.spans_for_trace(connection, int(stored["id"]))
+        ],
+    }
 
 
 def _events(connection: sqlite3.Connection, task_id: int) -> list[dict[str, object]]:
@@ -860,6 +1061,17 @@ def _public(row: sqlite3.Row) -> dict[str, object]:
         "path": row["path"],
         "change_id": None if row["change_id"] is None else int(row["change_id"]),
     }
+
+
+def _checkpoints(connection: sqlite3.Connection, task_id: int) -> list[dict[str, object]]:
+    grouped: list[dict[str, object]] = []
+    for row in workflow_store.checkpoints(connection, task_id):
+        if not grouped or grouped[-1]["id"] != int(row["id"]):
+            grouped.append({"id": int(row["id"]), "name": row["name"], "steps": []})
+        steps = grouped[-1]["steps"]
+        assert isinstance(steps, list)
+        steps.append({"title": row["title"], "state": row["state"]})
+    return grouped
 
 
 def _stopped(rows: list[sqlite3.Row]) -> str | None:

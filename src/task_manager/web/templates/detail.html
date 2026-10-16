@@ -244,6 +244,45 @@
   {% endfor %}
 </ol>
 {% endif %}
+<h3>Trace</h3>
+{% if task.workflow.trace %}
+<p id="workflow-trace">Trace {{ task.workflow.trace.id }}</p>
+<ol id="workflow-spans">
+  {% for span in task.workflow.trace.spans %}
+  <li>{{ span.name }} <span class="status">{{ span.state }}</span>{% if span.parent_id %} follows {{ span.parent_id }}{% endif %} {{ span.started_at }}{% if span.ended_at %} {{ span.ended_at }}{% endif %}</li>
+  {% endfor %}
+</ol>
+{% else %}
+<p class="muted">No trace yet.</p>
+{% endif %}
+<h3>Checkpoints</h3>
+{% if task.workflow.checkpoints %}
+<ul id="workflow-checkpoints">
+  {% for item in task.workflow.checkpoints %}
+  <li>{{ item.name }}
+    <ul>
+      {% for step in item.steps %}
+      <li>{{ step.title }} <span class="status">{{ step.state }}</span></li>
+      {% endfor %}
+    </ul>
+    {% if task.status == "In Progress" and not task.workflow.interrupted %}
+    <form method="post" action="/tasks/{{ task.id }}/workflow/checkpoints/{{ item.id }}/restore">
+      <p><button type="submit">Restore checkpoint</button></p>
+    </form>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No checkpoints yet.</p>
+{% endif %}
+{% if task.status == "In Progress" and task.workflow.steps and not task.workflow.interrupted %}
+<form method="post" action="/tasks/{{ task.id }}/workflow/checkpoints">
+  <label for="checkpoint-name">Checkpoint name</label>
+  <input id="checkpoint-name" name="name" type="text">
+  <p><button type="submit">Take checkpoint</button></p>
+</form>
+{% endif %}
 {% if task.workflow.execution %}
 <h3>Execution</h3>
 {% if task.workflow.execution.matched %}
@@ -278,6 +317,29 @@
   <input id="delivery-name" name="name" type="text">
   <p><button type="submit">Deliver outbox</button></p>
 </form>
+<form method="post" action="/tasks/{{ task.id }}/workflow/outbox/reject">
+  <label for="rejection-name">Rejection name</label>
+  <input id="rejection-name" name="name" type="text">
+  <label for="rejection-reason">Why this message is poison</label>
+  <input id="rejection-reason" name="reason" type="text">
+  <p><button type="submit">Reject message</button></p>
+</form>
+{% endif %}
+{% if task.workflow.poison %}
+<h3>Poison messages</h3>
+<ul id="workflow-poison">
+  {% for item in task.workflow.poison %}
+  <li>{{ item.name }}: {{ item.reason }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.workflow.dead_letters %}
+<h3>Dead letters</h3>
+<ul id="workflow-dead-letters">
+  {% for item in task.workflow.dead_letters %}
+  <li>{{ item.title }} {{ item.effect }}: {{ item.reason }}</li>
+  {% endfor %}
+</ul>
 {% endif %}
 {% if task.workflow.inbox %}
 <h3>Inbox</h3>

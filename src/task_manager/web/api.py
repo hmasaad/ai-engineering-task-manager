@@ -44,6 +44,17 @@ class DeliveryIn(BaseModel):
     name: str = ""
 
 
+class RejectionIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+    reason: str = ""
+
+
+class CheckpointIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+
+
 class CompensateIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
     reason: str = ""
@@ -397,6 +408,26 @@ def workflow_replay(request: Request, task_id: int):
     return _respond(request.app.state.workspace.workflow_replay(task_id))
 
 
+@router.get("/tasks/{task_id}/workflow/trace")
+def workflow_trace(request: Request, task_id: int):
+    return _respond(request.app.state.workspace.workflow_trace(task_id))
+
+
+@router.get("/tasks/{task_id}/workflow/checkpoints")
+def workflow_checkpoints(request: Request, task_id: int):
+    return _respond(request.app.state.workspace.workflow_checkpoints(task_id))
+
+
+@router.post("/tasks/{task_id}/workflow/checkpoints")
+def take_checkpoint(request: Request, task_id: int, body: CheckpointIn):
+    return _respond(request.app.state.workspace.take_checkpoint(task_id, body.name))
+
+
+@router.post("/tasks/{task_id}/workflow/checkpoints/{checkpoint_id}/restore")
+def restore_checkpoint(request: Request, task_id: int, checkpoint_id: int):
+    return _respond(request.app.state.workspace.restore_checkpoint(task_id, checkpoint_id))
+
+
 @router.post("/tasks/{task_id}/workflow/replay-execution")
 def replay_workflow_execution(request: Request, task_id: int):
     return _respond(request.app.state.workspace.replay_workflow_execution(task_id))
@@ -405,6 +436,13 @@ def replay_workflow_execution(request: Request, task_id: int):
 @router.post("/tasks/{task_id}/workflow/outbox")
 def deliver_outbox(request: Request, task_id: int, body: DeliveryIn):
     return _respond(request.app.state.workspace.deliver_outbox(task_id, body.name))
+
+
+@router.post("/tasks/{task_id}/workflow/outbox/reject")
+def reject_outbox(request: Request, task_id: int, body: RejectionIn):
+    return _respond(
+        request.app.state.workspace.reject_outbox(task_id, body.name, body.reason)
+    )
 
 
 @router.post("/tasks/{task_id}/workflow/compensate")
