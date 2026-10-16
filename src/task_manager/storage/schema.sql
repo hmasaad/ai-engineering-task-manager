@@ -386,3 +386,31 @@ CREATE TABLE IF NOT EXISTS workflow_migration (
     reason TEXT NOT NULL CHECK (length(trim(reason)) > 0),
     recorded_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS workflow_outbox (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    step_id INTEGER NOT NULL UNIQUE REFERENCES workflow_step(id),
+    effect TEXT NOT NULL CHECK (length(trim(effect)) > 0),
+    state TEXT NOT NULL CHECK (state IN ('Pending', 'Delivered')),
+    recorded_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS workflow_inbox (
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    outbox_id INTEGER NOT NULL REFERENCES workflow_outbox(id),
+    recorded_at TEXT NOT NULL,
+    PRIMARY KEY (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS workflow_compensation (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    step_id INTEGER NOT NULL UNIQUE REFERENCES workflow_step(id),
+    reason TEXT NOT NULL CHECK (length(trim(reason)) > 0),
+    state TEXT NOT NULL CHECK (state IN ('Compensated', 'Waiting', 'Not carried out')),
+    evidence TEXT CHECK (evidence IS NULL OR length(trim(evidence)) > 0),
+    decline_reason TEXT CHECK (decline_reason IS NULL OR length(trim(decline_reason)) > 0),
+    recorded_at TEXT NOT NULL
+);

@@ -275,6 +275,38 @@ def replay_workflow_execution(request: Request, task_id: int):
     return _after(request, task_id, _workspace(request).replay_workflow_execution(task_id))
 
 
+@router.post("/tasks/{task_id}/workflow/outbox")
+def deliver_outbox(request: Request, task_id: int, name: str = Form("")):
+    return _after(request, task_id, _workspace(request).deliver_outbox(task_id, name))
+
+
+@router.post("/tasks/{task_id}/workflow/compensate")
+def compensate_workflow(request: Request, task_id: int, reason: str = Form("")):
+    return _after(request, task_id, _workspace(request).compensate_workflow(task_id, reason))
+
+
+@router.post("/tasks/{task_id}/workflow/compensations/{compensation_id}/approve")
+def approve_compensation(
+    request: Request, task_id: int, compensation_id: int, evidence: str = Form("")
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).approve_compensation(task_id, compensation_id, evidence),
+    )
+
+
+@router.post("/tasks/{task_id}/workflow/compensations/{compensation_id}/decline")
+def decline_compensation(
+    request: Request, task_id: int, compensation_id: int, reason: str = Form("")
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).decline_compensation(task_id, compensation_id, reason),
+    )
+
+
 @router.post("/tasks/{task_id}/subtasks")
 def add_subtask(request: Request, task_id: int, title: str = Form("")):
     result = _workspace(request).add_subtask(task_id, title)

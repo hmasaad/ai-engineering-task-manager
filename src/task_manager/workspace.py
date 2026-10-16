@@ -195,6 +195,27 @@ class Workspace:
         with self._lock:
             return workflow.replay_execution(self.connection, task_id)
 
+    def deliver_outbox(self, task_id: int, name: str | None):
+        return self._run(lambda conn, at: workflow.deliver(conn, task_id, name, at))
+
+    def compensate_workflow(self, task_id: int, reason: str | None):
+        return self._run(lambda conn, at: workflow.compensate(conn, task_id, reason, at))
+
+    def approve_compensation(self, task_id: int, compensation_id: int, evidence: str | None):
+        root = self.project_root
+        return self._run(
+            lambda conn, at: workflow.approve_compensation(
+                conn, task_id, compensation_id, evidence, at, root
+            )
+        )
+
+    def decline_compensation(self, task_id: int, compensation_id: int, reason: str | None):
+        return self._run(
+            lambda conn, at: workflow.decline_compensation(
+                conn, task_id, compensation_id, reason, at
+            )
+        )
+
     def get_task(self, task_id: int):
         with self._lock:
             detail = task_detail(self.connection, task_id)

@@ -5,13 +5,17 @@ from pathlib import Path
 
 from task_manager.domain.capture import _detail
 from task_manager.domain.file_read import NAME_FILE
-from task_manager.domain.folder import NAME_FOLDER
+from task_manager.domain.folder import FOLDER_MISMATCH, FOLDER_OUTSIDE, NAME_FOLDER
 from task_manager.domain.implementation import (
     CHANGE_NOT_FOUND,
     CHOOSE_CLASS,
+    EVIDENCE_REQUIRED,
     NAME_PROJECT,
     WHAT_CHANGED_REQUIRED,
+    _inside,
+    _project_dir,
     _record_status,
+    _relative_inside,
 )
 from task_manager.domain.results import Refusal, bad_request, conflict, missing
 from task_manager.domain.text import clean
@@ -36,6 +40,16 @@ KEEP_RAN = "A step that already ran must stay in the new version."
 NO_REPLAY = "There is no step to replay."
 MISSING_EFFECT = "the stored effect is missing."
 STEP_NOT_RUN = "the step has not run."
+NAME_DELIVERY = "Name this delivery."
+NO_OUTBOX = "There is no outbox message to deliver."
+NAME_COMPENSATION = "Name why this step is compensated."
+NO_COMPENSATE = "There is no step to compensate."
+NOT_FAILED = "The workflow has not failed."
+WAITING_COMPENSATION = "Finish the waiting compensation first."
+FOLDER_NONEMPTY = "The folder must be empty to compensate."
+NOT_WAITING = "That compensation is not waiting."
+NOT_ON_TASK = "That compensation is not on this task."
+NAME_DECLINE = "Name why this compensation will not be carried out."
 _ACTIONS = ("read", "folder")
 _CLASSES = ("ordinary", "consequential")
 
@@ -310,6 +324,29 @@ def payload(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
         "interrupted": any(row["state"] == "Running" for row in rows),
         "replay": _events(connection, task_id),
         "execution": _execution(connection, task_id, rows),
+        "saga": _saga(rows, workflow_store.compensations(connection, task_id)),
+        "compensations": [
+            {
+                "id": int(row["id"]),
+                "title": row["title"],
+                "state": row["state"],
+                "reason": row["reason"],
+            }
+            for row in workflow_store.compensations(connection, task_id)
+        ],
+        "outbox": [
+            {
+                "id": int(row["id"]),
+                "title": row["title"],
+                "effect": row["effect"],
+                "state": row["state"],
+            }
+            for row in workflow_store.outbox_messages(connection, task_id)
+        ],
+        "inbox": [
+            {"name": row["name"], "outbox_id": int(row["outbox_id"])}
+            for row in workflow_store.inbox_entries(connection, task_id)
+        ],
     }
 
 
@@ -383,6 +420,160 @@ def migrate(
         occurred_at,
     )
     return _detail(connection, int(task["id"]))
+
+
+def deliver(connection: sqlite3.Connection, task_id: int, name: str | None, occurred_at: str):
+    task = task_store.row_task(connection, task_id)
+    if task is None:
+        return missing("Task not found.")
+    status_refusal = _record_status(task["status"])
+    if status_refusal is not None:
+        return status_refusal
+    kept = clean(name)
+    if not kept:
+        return bad_request(NAME_DELIVERY)
+    if workflow_store.inbox_entry(connection, int(task["id"]), kept) is not None:
+        return _detail(connection, int(task["id"]))
+    pending = workflow_store.oldest_pending_outbox(connection, int(task["id"]))
+    if pending is None:
+        return conflict(NO_OUTBOX)
+    workflow_store.mark_outbox_delivered(connection, int(pending["id"]))
+    workflow_store.insert_inbox(
+        connection, int(task["id"]), kept, int(pending["id"]), occurred_at
+    )
+    return _detail(connection, int(task["id"]))
+
+
+def compensate(
+    connection: sqlite3.Connection, task_id: int, reason: str | None, occurred_at: str
+):
+    task = task_store.row_task(connection, task_id)
+    if task is None:
+        return missing("Task not found.")
+    status_refusal = _record_status(task["status"])
+    if status_refusal is not None:
+        return status_refusal
+    kept = clean(reason)
+    if not kept:
+        return bad_request(NAME_COMPENSATION)
+    detail = _detail(connection, int(task["id"]))
+    saga = detail["workflow"]["saga"]
+    if detail["workflow"]["interrupted"]:
+        return conflict(RECOVER_FIRST)
+    if saga == "Waiting":
+        return conflict(WAITING_COMPENSATION)
+    if saga == "Compensated":
+        return conflict(NO_COMPENSATE)
+    if saga != "Failed":
+        return conflict(NOT_FAILED)
+    taken = {
+        int(row["step_id"]) for row in workflow_store.compensations(connection, int(task["id"]))
+    }
+    chosen = None
+    for row in reversed(workflow_store.steps(connection, int(task["id"]))):
+        if row["state"] == "Completed" and int(row["id"]) not in taken:
+            chosen = row
+            break
+    if chosen is None:
+        return conflict(NO_COMPENSATE)
+    state = "Waiting" if chosen["action"] == "folder" else "Compensated"
+    workflow_store.insert_compensation(
+        connection, int(task["id"]), int(chosen["id"]), kept, state, occurred_at
+    )
+    return _detail(connection, int(task["id"]))
+
+
+def approve_compensation(
+    connection: sqlite3.Connection,
+    task_id: int,
+    compensation_id: int,
+    evidence: str | None,
+    occurred_at: str,
+    project_root: Path,
+):
+    del occurred_at
+    task = task_store.row_task(connection, task_id)
+    if task is None:
+        return missing("Task not found.")
+    status_refusal = _record_status(task["status"])
+    if status_refusal is not None:
+        return status_refusal
+    kept = clean(evidence)
+    if not kept:
+        return bad_request(EVIDENCE_REQUIRED)
+    row = workflow_store.compensation_on_task(connection, int(task["id"]), compensation_id)
+    if row is None:
+        return conflict(NOT_ON_TASK)
+    if row["state"] != "Waiting":
+        return conflict(NOT_WAITING)
+    removed = _remove_empty_folder(row, project_root)
+    if isinstance(removed, Refusal):
+        return removed
+    workflow_store.settle_compensation(connection, int(row["id"]), "Compensated", kept, None)
+    return _detail(connection, int(task["id"]))
+
+
+def decline_compensation(
+    connection: sqlite3.Connection,
+    task_id: int,
+    compensation_id: int,
+    reason: str | None,
+    occurred_at: str,
+):
+    del occurred_at
+    task = task_store.row_task(connection, task_id)
+    if task is None:
+        return missing("Task not found.")
+    status_refusal = _record_status(task["status"])
+    if status_refusal is not None:
+        return status_refusal
+    kept = clean(reason)
+    if not kept:
+        return bad_request(NAME_DECLINE)
+    row = workflow_store.compensation_on_task(connection, int(task["id"]), compensation_id)
+    if row is None:
+        return conflict(NOT_ON_TASK)
+    if row["state"] != "Waiting":
+        return conflict(NOT_WAITING)
+    workflow_store.settle_compensation(connection, int(row["id"]), "Not carried out", None, kept)
+    return _detail(connection, int(task["id"]))
+
+
+def _saga(rows: list[sqlite3.Row], compensations: list[sqlite3.Row]) -> str | None:
+    if not rows:
+        return None
+    if any(row["state"] == "Waiting" for row in compensations):
+        return "Waiting"
+    completed = [row for row in rows if row["state"] == "Completed"]
+    settled = {
+        int(row["step_id"])
+        for row in compensations
+        if row["state"] in ("Compensated", "Not carried out")
+    }
+    failed = any(row["state"] == "Failed" for row in rows)
+    if failed and completed and all(int(row["id"]) in settled for row in completed):
+        return "Compensated"
+    if failed:
+        return "Failed"
+    return "Open"
+
+
+def _remove_empty_folder(row: sqlite3.Row, project_root: Path):
+    relative = _relative_inside(row["path"])
+    project_dir = _project_dir(row["project"], project_root)
+    if relative is None or not project_dir.is_dir():
+        return conflict(FOLDER_MISMATCH)
+    target = (project_dir / relative).resolve()
+    if not _inside(target, project_dir):
+        return conflict(FOLDER_OUTSIDE)
+    if not target.exists():
+        return None
+    if not target.is_dir():
+        return conflict(FOLDER_MISMATCH)
+    if any(target.iterdir()):
+        return conflict(FOLDER_NONEMPTY)
+    target.rmdir()
+    return None
 
 
 def _ensure_current(connection: sqlite3.Connection, task_id: int) -> int:
@@ -618,6 +809,14 @@ def _set_outcome(
 ) -> None:
     workflow_store.update_step(connection, int(step["id"]), state, detail, change_id)
     _remember(connection, step, state, detail, occurred_at)
+    if state == "Completed":
+        workflow_store.insert_outbox(
+            connection,
+            int(step["task_id"]),
+            int(step["id"]),
+            step["path"],
+            occurred_at,
+        )
 
 
 def _remember(

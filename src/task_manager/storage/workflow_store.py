@@ -312,3 +312,185 @@ def migrations(connection: sqlite3.Connection, task_id: int) -> list[sqlite3.Row
         """,
         (task_id,),
     ).fetchall()
+
+
+def insert_outbox(
+    connection: sqlite3.Connection,
+    task_id: int,
+    step_id: int,
+    effect: str,
+    recorded_at: str,
+) -> bool:
+    try:
+        connection.execute(
+            """
+            INSERT INTO workflow_outbox (task_id, step_id, effect, state, recorded_at)
+            VALUES (?, ?, ?, 'Pending', ?)
+            """,
+            (task_id, step_id, effect, recorded_at),
+        )
+    except sqlite3.IntegrityError:
+        return False
+    return True
+
+
+def outbox_messages(connection: sqlite3.Connection, task_id: int) -> list[sqlite3.Row]:
+    return connection.execute(
+        """
+        SELECT workflow_outbox.id, workflow_step.title, workflow_outbox.effect,
+               workflow_outbox.state
+        FROM workflow_outbox
+        JOIN workflow_step ON workflow_step.id = workflow_outbox.step_id
+        WHERE workflow_outbox.task_id = ?
+        ORDER BY workflow_outbox.id ASC
+        """,
+        (task_id,),
+    ).fetchall()
+
+
+def oldest_pending_outbox(connection: sqlite3.Connection, task_id: int) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT id, step_id, effect, state
+        FROM workflow_outbox
+        WHERE task_id = ? AND state = 'Pending'
+        ORDER BY id ASC
+        LIMIT 1
+        """,
+        (task_id,),
+    ).fetchone()
+
+
+def mark_outbox_delivered(connection: sqlite3.Connection, outbox_id: int) -> None:
+    connection.execute(
+        "UPDATE workflow_outbox SET state = 'Delivered' WHERE id = ?",
+        (outbox_id,),
+    )
+
+
+def insert_inbox(
+    connection: sqlite3.Connection,
+    task_id: int,
+    name: str,
+    outbox_id: int,
+    recorded_at: str,
+) -> bool:
+    try:
+        connection.execute(
+            """
+            INSERT INTO workflow_inbox (task_id, name, outbox_id, recorded_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (task_id, name, outbox_id, recorded_at),
+        )
+    except sqlite3.IntegrityError:
+        return False
+    return True
+
+
+def inbox_entry(connection: sqlite3.Connection, task_id: int, name: str) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT task_id, name, outbox_id, recorded_at
+        FROM workflow_inbox
+        WHERE task_id = ? AND name = ?
+        """,
+        (task_id, name),
+    ).fetchone()
+
+
+def inbox_entries(connection: sqlite3.Connection, task_id: int) -> list[sqlite3.Row]:
+    return connection.execute(
+        """
+        SELECT name, outbox_id
+        FROM workflow_inbox
+        WHERE task_id = ?
+        ORDER BY recorded_at ASC, name ASC
+        """,
+        (task_id,),
+    ).fetchall()
+
+
+def compensations(connection: sqlite3.Connection, task_id: int) -> list[sqlite3.Row]:
+    return connection.execute(
+        """
+        SELECT
+            workflow_compensation.id,
+            workflow_compensation.step_id,
+            workflow_compensation.reason,
+            workflow_compensation.state,
+            workflow_compensation.evidence,
+            workflow_compensation.decline_reason,
+            workflow_step.title,
+            workflow_step.action,
+            workflow_step.path,
+            workflow_step.project
+        FROM workflow_compensation
+        JOIN workflow_step ON workflow_step.id = workflow_compensation.step_id
+        WHERE workflow_compensation.task_id = ?
+        ORDER BY workflow_compensation.id ASC
+        """,
+        (task_id,),
+    ).fetchall()
+
+
+def compensation_on_task(
+    connection: sqlite3.Connection, task_id: int, compensation_id: int
+) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT
+            workflow_compensation.id,
+            workflow_compensation.step_id,
+            workflow_compensation.reason,
+            workflow_compensation.state,
+            workflow_step.title,
+            workflow_step.action,
+            workflow_step.path,
+            workflow_step.project
+        FROM workflow_compensation
+        JOIN workflow_step ON workflow_step.id = workflow_compensation.step_id
+        WHERE workflow_compensation.task_id = ? AND workflow_compensation.id = ?
+        """,
+        (task_id, compensation_id),
+    ).fetchone()
+
+
+def insert_compensation(
+    connection: sqlite3.Connection,
+    task_id: int,
+    step_id: int,
+    reason: str,
+    state: str,
+    recorded_at: str,
+) -> bool:
+    try:
+        connection.execute(
+            """
+            INSERT INTO workflow_compensation (
+                task_id, step_id, reason, state, recorded_at
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (task_id, step_id, reason, state, recorded_at),
+        )
+    except sqlite3.IntegrityError:
+        return False
+    return True
+
+
+def settle_compensation(
+    connection: sqlite3.Connection,
+    compensation_id: int,
+    state: str,
+    evidence: str | None,
+    decline_reason: str | None,
+) -> None:
+    connection.execute(
+        """
+        UPDATE workflow_compensation
+        SET state = ?, evidence = ?, decline_reason = ?
+        WHERE id = ?
+        """,
+        (state, evidence, decline_reason, compensation_id),
+    )

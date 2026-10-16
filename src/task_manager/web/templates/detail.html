@@ -167,6 +167,9 @@
 {% endif %}
 
 <h2>Workflow</h2>
+{% if task.workflow.saga %}
+<p id="workflow-saga">Saga {{ task.workflow.saga }}</p>
+{% endif %}
 {% if task.workflow.version %}
 <p id="workflow-version">Version {{ task.workflow.version }}</p>
 {% endif %}
@@ -259,6 +262,66 @@
   <p><button type="submit">Replay execution</button></p>
 </form>
 {% endif %}
+<h3>Outbox</h3>
+{% if task.workflow.outbox %}
+<ul id="workflow-outbox">
+  {% for message in task.workflow.outbox %}
+  <li>{{ message.title }} <span class="status">{{ message.state }}</span> {{ message.effect }}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No outbox messages yet.</p>
+{% endif %}
+{% if task.status == "In Progress" and task.workflow.outbox | selectattr("state", "equalto", "Pending") | list %}
+<form method="post" action="/tasks/{{ task.id }}/workflow/outbox">
+  <label for="delivery-name">Delivery name</label>
+  <input id="delivery-name" name="name" type="text">
+  <p><button type="submit">Deliver outbox</button></p>
+</form>
+{% endif %}
+{% if task.workflow.inbox %}
+<h3>Inbox</h3>
+<ul id="workflow-inbox">
+  {% for entry in task.workflow.inbox %}
+  <li>{{ entry.name }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.workflow.compensations %}
+<h3>Compensations</h3>
+<ul id="workflow-compensations">
+  {% for item in task.workflow.compensations %}
+  <li>{{ item.title }}: {{ item.state }}. {{ item.reason }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.status == "In Progress" and task.workflow.saga == "Failed" %}
+<form method="post" action="/tasks/{{ task.id }}/workflow/compensate">
+  <p>
+    <label for="compensation-reason">Why this step is compensated</label>
+    <input id="compensation-reason" name="reason" type="text">
+  </p>
+  <p><button type="submit">Compensate</button></p>
+</form>
+{% endif %}
+{% for item in task.workflow.compensations %}
+{% if item.state == "Waiting" and task.status == "In Progress" %}
+<form method="post" action="/tasks/{{ task.id }}/workflow/compensations/{{ item.id }}/approve">
+  <p>
+    <label for="compensation-evidence-{{ item.id }}">Evidence reviewed</label>
+    <input id="compensation-evidence-{{ item.id }}" name="evidence" type="text">
+  </p>
+  <p><button type="submit">Approve compensation</button></p>
+</form>
+<form method="post" action="/tasks/{{ task.id }}/workflow/compensations/{{ item.id }}/decline">
+  <p>
+    <label for="compensation-decline-{{ item.id }}">Why this compensation will not be carried out</label>
+    <input id="compensation-decline-{{ item.id }}" name="reason" type="text">
+  </p>
+  <p><button type="submit">Mark compensation not carried out</button></p>
+</form>
+{% endif %}
+{% endfor %}
 {% if task.workflow.migrations %}
 <h3>Migrations</h3>
 <ul id="workflow-migrations">

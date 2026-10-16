@@ -39,6 +39,26 @@ class MigrateIn(BaseModel):
     reason: str = ""
 
 
+class DeliveryIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+
+
+class CompensateIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    reason: str = ""
+
+
+class CompensationEvidenceIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    evidence: str = ""
+
+
+class CompensationDeclineIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    reason: str = ""
+
+
 class ModelIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
     name: str = ""
@@ -380,6 +400,36 @@ def workflow_replay(request: Request, task_id: int):
 @router.post("/tasks/{task_id}/workflow/replay-execution")
 def replay_workflow_execution(request: Request, task_id: int):
     return _respond(request.app.state.workspace.replay_workflow_execution(task_id))
+
+
+@router.post("/tasks/{task_id}/workflow/outbox")
+def deliver_outbox(request: Request, task_id: int, body: DeliveryIn):
+    return _respond(request.app.state.workspace.deliver_outbox(task_id, body.name))
+
+
+@router.post("/tasks/{task_id}/workflow/compensate")
+def compensate_workflow(request: Request, task_id: int, body: CompensateIn):
+    return _respond(request.app.state.workspace.compensate_workflow(task_id, body.reason))
+
+
+@router.post("/tasks/{task_id}/workflow/compensations/{compensation_id}/approve")
+def approve_compensation(
+    request: Request, task_id: int, compensation_id: int, body: CompensationEvidenceIn
+):
+    return _respond(
+        request.app.state.workspace.approve_compensation(
+            task_id, compensation_id, body.evidence
+        )
+    )
+
+
+@router.post("/tasks/{task_id}/workflow/compensations/{compensation_id}/decline")
+def decline_compensation(
+    request: Request, task_id: int, compensation_id: int, body: CompensationDeclineIn
+):
+    return _respond(
+        request.app.state.workspace.decline_compensation(task_id, compensation_id, body.reason)
+    )
 
 
 @router.post("/tasks/{task_id}/subtasks")
