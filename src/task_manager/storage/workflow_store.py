@@ -4,6 +4,13 @@ import sqlite3
 
 
 def steps(connection: sqlite3.Connection, task_id: int) -> list[sqlite3.Row]:
+    current = current_version(connection, task_id)
+    if current is None:
+        return stored_steps(connection, task_id)
+    return steps_for_version(connection, int(current["id"]))
+
+
+def stored_steps(connection: sqlite3.Connection, task_id: int) -> list[sqlite3.Row]:
     return connection.execute(
         """
         SELECT id, task_id, position, title, action, project, path,
@@ -13,6 +20,23 @@ def steps(connection: sqlite3.Connection, task_id: int) -> list[sqlite3.Row]:
         ORDER BY position ASC, id ASC
         """,
         (task_id,),
+    ).fetchall()
+
+
+def steps_for_version(connection: sqlite3.Connection, version_id: int) -> list[sqlite3.Row]:
+    return connection.execute(
+        """
+        SELECT workflow_step.id, workflow_step.task_id, workflow_step.position,
+               workflow_step.title, workflow_step.action, workflow_step.project,
+               workflow_step.path, workflow_step.what_changed, workflow_step.change_class,
+               workflow_step.state, workflow_step.detail, workflow_step.change_id
+        FROM workflow_step
+        JOIN workflow_version_step
+          ON workflow_version_step.step_id = workflow_step.id
+        WHERE workflow_version_step.version_id = ?
+        ORDER BY workflow_version_step.position ASC, workflow_step.id ASC
+        """,
+        (version_id,),
     ).fetchall()
 
 
@@ -29,15 +53,7 @@ def row_step(connection: sqlite3.Connection, step_id: int) -> sqlite3.Row | None
 
 
 def any_started(connection: sqlite3.Connection, task_id: int) -> bool:
-    row = connection.execute(
-        """
-        SELECT 1 FROM workflow_step
-        WHERE task_id = ? AND state != 'Pending'
-        LIMIT 1
-        """,
-        (task_id,),
-    ).fetchone()
-    return row is not None
+    return any(row["state"] != "Pending" for row in steps(connection, task_id))
 
 
 def insert_step(
@@ -49,7 +65,7 @@ def insert_step(
     path: str,
     what_changed: str | None,
     change_class: str | None,
-) -> None:
+) -> int:
     position = connection.execute(
         """
         SELECT COALESCE(MAX(position), 0) + 1
@@ -68,9 +84,11 @@ def insert_step(
         """,
         (task_id, position, title, action, project, path, what_changed, change_class),
     )
+    return int(connection.execute("SELECT last_insert_rowid()").fetchone()[0])
 
 
 def delete_step(connection: sqlite3.Connection, step_id: int) -> None:
+    connection.execute("DELETE FROM workflow_version_step WHERE step_id = ?", (step_id,))
     connection.execute("DELETE FROM workflow_step WHERE id = ?", (step_id,))
 
 
@@ -170,3 +188,127 @@ def update_step(
         """,
         (state, detail, change_id, step_id),
     )
+
+
+def current_version(connection: sqlite3.Connection, task_id: int) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT id, task_id, number, state
+        FROM workflow_version
+        WHERE task_id = ? AND state = 'Current'
+        """,
+        (task_id,),
+    ).fetchone()
+
+
+def draft_version(connection: sqlite3.Connection, task_id: int) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT id, task_id, number, state
+        FROM workflow_version
+        WHERE task_id = ? AND state = 'Draft'
+        """,
+        (task_id,),
+    ).fetchone()
+
+
+def insert_version(
+    connection: sqlite3.Connection, task_id: int, number: int, state: str
+) -> int:
+    connection.execute(
+        """
+        INSERT INTO workflow_version (task_id, number, state)
+        VALUES (?, ?, ?)
+        """,
+        (task_id, number, state),
+    )
+    return int(connection.execute("SELECT last_insert_rowid()").fetchone()[0])
+
+
+def set_version_state(connection: sqlite3.Connection, version_id: int, state: str) -> None:
+    connection.execute(
+        "UPDATE workflow_version SET state = ? WHERE id = ?",
+        (state, version_id),
+    )
+
+
+def link_step(
+    connection: sqlite3.Connection, version_id: int, step_id: int, position: int
+) -> None:
+    connection.execute(
+        """
+        INSERT INTO workflow_version_step (version_id, step_id, position)
+        VALUES (?, ?, ?)
+        """,
+        (version_id, step_id, position),
+    )
+
+
+def next_position(connection: sqlite3.Connection, version_id: int) -> int:
+    row = connection.execute(
+        """
+        SELECT COALESCE(MAX(position), 0) + 1
+        FROM workflow_version_step
+        WHERE version_id = ?
+        """,
+        (version_id,),
+    ).fetchone()
+    return int(row[0])
+
+
+def step_on_version(connection: sqlite3.Connection, version_id: int, step_id: int) -> bool:
+    row = connection.execute(
+        """
+        SELECT 1 FROM workflow_version_step
+        WHERE version_id = ? AND step_id = ?
+        """,
+        (version_id, step_id),
+    ).fetchone()
+    return row is not None
+
+
+def delete_version_if_empty(connection: sqlite3.Connection, version_id: int) -> None:
+    count = connection.execute(
+        "SELECT COUNT(*) FROM workflow_version_step WHERE version_id = ?",
+        (version_id,),
+    ).fetchone()[0]
+    if int(count) == 0:
+        connection.execute("DELETE FROM workflow_version WHERE id = ?", (version_id,))
+
+
+def insert_migration(
+    connection: sqlite3.Connection,
+    task_id: int,
+    from_version_id: int,
+    to_version_id: int,
+    reason: str,
+    recorded_at: str,
+) -> None:
+    connection.execute(
+        """
+        INSERT INTO workflow_migration (
+            task_id, from_version_id, to_version_id, reason, recorded_at
+        )
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (task_id, from_version_id, to_version_id, reason, recorded_at),
+    )
+
+
+def migrations(connection: sqlite3.Connection, task_id: int) -> list[sqlite3.Row]:
+    return connection.execute(
+        """
+        SELECT from_version.number AS from_version,
+               to_version.number AS to_version,
+               workflow_migration.reason,
+               workflow_migration.recorded_at
+        FROM workflow_migration
+        JOIN workflow_version AS from_version
+          ON from_version.id = workflow_migration.from_version_id
+        JOIN workflow_version AS to_version
+          ON to_version.id = workflow_migration.to_version_id
+        WHERE workflow_migration.task_id = ?
+        ORDER BY workflow_migration.id ASC
+        """,
+        (task_id,),
+    ).fetchall()

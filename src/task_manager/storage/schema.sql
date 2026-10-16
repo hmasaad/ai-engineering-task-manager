@@ -353,3 +353,36 @@ CREATE TABLE IF NOT EXISTS workflow_advance (
     step_id INTEGER NOT NULL REFERENCES workflow_step(id),
     PRIMARY KEY (task_id, name)
 );
+
+CREATE TABLE IF NOT EXISTS workflow_version (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    number INTEGER NOT NULL CHECK (number >= 1),
+    state TEXT NOT NULL CHECK (state IN ('Current', 'Draft', 'Superseded')),
+    UNIQUE (task_id, number)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_workflow_version_current
+    ON workflow_version(task_id)
+    WHERE state = 'Current';
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_workflow_version_draft
+    ON workflow_version(task_id)
+    WHERE state = 'Draft';
+
+CREATE TABLE IF NOT EXISTS workflow_version_step (
+    version_id INTEGER NOT NULL REFERENCES workflow_version(id),
+    step_id INTEGER NOT NULL REFERENCES workflow_step(id),
+    position INTEGER NOT NULL CHECK (position >= 1),
+    PRIMARY KEY (version_id, step_id),
+    UNIQUE (version_id, position)
+);
+
+CREATE TABLE IF NOT EXISTS workflow_migration (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    from_version_id INTEGER NOT NULL REFERENCES workflow_version(id),
+    to_version_id INTEGER NOT NULL REFERENCES workflow_version(id),
+    reason TEXT NOT NULL CHECK (length(trim(reason)) > 0),
+    recorded_at TEXT NOT NULL
+);

@@ -27,6 +27,15 @@ RECOVER_FIRST = "Recover the interrupted step first."
 NO_RECOVER = "There is no step to recover."
 INTERRUPTED = "the step was interrupted."
 WAITING = "waiting for approval."
+NOT_RUN = "The workflow has not run yet."
+DRAFT_EXISTS = "A draft version already exists."
+NO_WORKFLOW = "There is no workflow to revise."
+NO_DRAFT = "There is no draft version to migrate."
+NAME_REASON = "Name why this workflow is migrating."
+KEEP_RAN = "A step that already ran must stay in the new version."
+NO_REPLAY = "There is no step to replay."
+MISSING_EFFECT = "the stored effect is missing."
+STEP_NOT_RUN = "the step has not run."
 _ACTIONS = ("read", "folder")
 _CLASSES = ("ordinary", "consequential")
 
@@ -51,7 +60,9 @@ def add(
     status_refusal = _record_status(task["status"])
     if status_refusal is not None:
         return status_refusal
-    if workflow_store.any_started(connection, task_id):
+    if workflow_store.draft_version(connection, int(task["id"])) is None and (
+        workflow_store.any_started(connection, int(task["id"]))
+    ):
         return conflict(ADD_ONLY_BEFORE)
     kept_title = clean(title)
     if not kept_title:
@@ -77,7 +88,12 @@ def add(
             return bad_request(CHOOSE_CLASS)
         if not kept_path:
             return bad_request(NAME_FOLDER)
-    workflow_store.insert_step(
+    draft = workflow_store.draft_version(connection, int(task["id"]))
+    if draft is None:
+        version_id = _ensure_current(connection, int(task["id"]))
+    else:
+        version_id = int(draft["id"])
+    step_id = workflow_store.insert_step(
         connection,
         int(task["id"]),
         kept_title,
@@ -86,6 +102,12 @@ def add(
         kept_path,
         kept_what,
         kept_class,
+    )
+    workflow_store.link_step(
+        connection,
+        version_id,
+        step_id,
+        workflow_store.next_position(connection, version_id),
     )
     return _detail(connection, int(task["id"]))
 
@@ -97,12 +119,23 @@ def remove(connection: sqlite3.Connection, task_id: int, step_id: int):
     status_refusal = _record_status(task["status"])
     if status_refusal is not None:
         return status_refusal
-    if workflow_store.any_started(connection, task_id):
-        return conflict(REMOVE_ONLY_BEFORE)
     row = workflow_store.row_step(connection, step_id)
     if row is None or int(row["task_id"]) != int(task["id"]):
         return conflict(STEP_NOT_ON_TASK)
+    draft = workflow_store.draft_version(connection, int(task["id"]))
+    if draft is not None and workflow_store.step_on_version(
+        connection, int(draft["id"]), int(row["id"])
+    ):
+        if row["state"] != "Pending":
+            return conflict(KEEP_RAN)
+        workflow_store.delete_step(connection, int(row["id"]))
+        return _detail(connection, int(task["id"]))
+    if workflow_store.any_started(connection, int(task["id"])):
+        return conflict(REMOVE_ONLY_BEFORE)
     workflow_store.delete_step(connection, int(row["id"]))
+    current = workflow_store.current_version(connection, int(task["id"]))
+    if current is not None:
+        workflow_store.delete_version_if_empty(connection, int(current["id"]))
     return _detail(connection, int(task["id"]))
 
 
@@ -197,16 +230,199 @@ def replay(connection: sqlite3.Connection, task_id: int):
     return {"events": _events(connection, task_id)}
 
 
-def payload(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
+def replay_execution(connection: sqlite3.Connection, task_id: int):
+    if task_store.row_task(connection, task_id) is None:
+        return missing("Task not found.")
     rows = workflow_store.steps(connection, task_id)
+    if not rows:
+        return conflict(NO_REPLAY)
+    if any(row["state"] == "Running" for row in rows):
+        return conflict(RECOVER_FIRST)
+    current = workflow_store.current_version(connection, task_id)
+    version = int(current["number"]) if current is not None else 1
+    from task_manager.storage import file_read_store
+
+    read_paths = [
+        item["path"] for item in file_read_store.file_reads_for(connection, task_id)
+    ]
+    used: dict[str, int] = {}
+    matched: list[dict[str, str]] = []
+    stopped = None
+    for row in rows:
+        if row["state"] == "Completed":
+            if not _effect_matches(connection, row, read_paths, used):
+                stopped = f"Stopped at {row['title']}: {MISSING_EFFECT}"
+                break
+            matched.append(
+                {
+                    "title": row["title"],
+                    "action": row["action"],
+                    "state": "Completed",
+                    "effect": row["path"],
+                }
+            )
+            continue
+        if row["state"] == "Pending":
+            stopped = f"Stopped at {row['title']}: {STEP_NOT_RUN}"
+        elif row["state"] == "Waiting":
+            stopped = f"Stopped at {row['title']}: {WAITING}"
+        else:
+            stopped = f"Stopped at {row['title']}: {row['detail']}"
+        break
+    return {"version": version, "matched": matched, "stopped": stopped}
+
+
+def payload(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
+    current = workflow_store.current_version(connection, task_id)
+    rows = workflow_store.steps(connection, task_id)
+    draft_row = workflow_store.draft_version(connection, task_id)
+    draft = None
+    if draft_row is not None:
+        draft = {
+            "number": int(draft_row["number"]),
+            "steps": [
+                _public(row)
+                for row in workflow_store.steps_for_version(connection, int(draft_row["id"]))
+            ],
+        }
+    if current is not None:
+        version: int | None = int(current["number"])
+    elif rows:
+        version = 1
+    else:
+        version = None
     return {
         "steps": [_public(row) for row in rows],
+        "version": version,
+        "draft": draft,
+        "migrations": [
+            {
+                "from_version": int(row["from_version"]),
+                "to_version": int(row["to_version"]),
+                "reason": row["reason"],
+                "recorded_at": row["recorded_at"],
+            }
+            for row in workflow_store.migrations(connection, task_id)
+        ],
         "stopped": _stopped(rows),
         "started": any(row["state"] != "Pending" for row in rows),
         "finished": bool(rows) and all(row["state"] == "Completed" for row in rows),
         "interrupted": any(row["state"] == "Running" for row in rows),
         "replay": _events(connection, task_id),
+        "execution": _execution(connection, task_id, rows),
     }
+
+
+def revise(connection: sqlite3.Connection, task_id: int):
+    task = task_store.row_task(connection, task_id)
+    if task is None:
+        return missing("Task not found.")
+    status_refusal = _record_status(task["status"])
+    if status_refusal is not None:
+        return status_refusal
+    if not workflow_store.stored_steps(connection, int(task["id"])):
+        return conflict(NO_WORKFLOW)
+    current_steps = workflow_store.steps(connection, int(task["id"]))
+    if any(row["state"] == "Running" for row in current_steps):
+        return conflict(RECOVER_FIRST)
+    if workflow_store.draft_version(connection, int(task["id"])) is not None:
+        return conflict(DRAFT_EXISTS)
+    if not any(row["state"] != "Pending" for row in current_steps):
+        return conflict(NOT_RUN)
+    _ensure_current(connection, int(task["id"]))
+    current = workflow_store.current_version(connection, int(task["id"]))
+    draft_id = workflow_store.insert_version(
+        connection, int(task["id"]), int(current["number"]) + 1, "Draft"
+    )
+    position = 1
+    for row in workflow_store.steps(connection, int(task["id"])):
+        if row["state"] == "Pending":
+            continue
+        workflow_store.link_step(connection, draft_id, int(row["id"]), position)
+        position += 1
+    return _detail(connection, int(task["id"]))
+
+
+def migrate(
+    connection: sqlite3.Connection,
+    task_id: int,
+    reason: str | None,
+    occurred_at: str,
+):
+    task = task_store.row_task(connection, task_id)
+    if task is None:
+        return missing("Task not found.")
+    status_refusal = _record_status(task["status"])
+    if status_refusal is not None:
+        return status_refusal
+    draft = workflow_store.draft_version(connection, int(task["id"]))
+    if draft is None:
+        return conflict(NO_DRAFT)
+    kept = clean(reason)
+    if not kept:
+        return bad_request(NAME_REASON)
+    current = workflow_store.current_version(connection, int(task["id"]))
+    current_steps = workflow_store.steps(connection, int(task["id"]))
+    if any(row["state"] == "Running" for row in current_steps):
+        return conflict(RECOVER_FIRST)
+    draft_ids = {
+        int(row["id"])
+        for row in workflow_store.steps_for_version(connection, int(draft["id"]))
+    }
+    for row in current_steps:
+        if row["state"] != "Pending" and int(row["id"]) not in draft_ids:
+            return conflict(KEEP_RAN)
+    workflow_store.set_version_state(connection, int(current["id"]), "Superseded")
+    workflow_store.set_version_state(connection, int(draft["id"]), "Current")
+    workflow_store.insert_migration(
+        connection,
+        int(task["id"]),
+        int(current["id"]),
+        int(draft["id"]),
+        kept,
+        occurred_at,
+    )
+    return _detail(connection, int(task["id"]))
+
+
+def _ensure_current(connection: sqlite3.Connection, task_id: int) -> int:
+    current = workflow_store.current_version(connection, task_id)
+    if current is not None:
+        return int(current["id"])
+    version_id = workflow_store.insert_version(connection, task_id, 1, "Current")
+    for index, row in enumerate(workflow_store.stored_steps(connection, task_id), start=1):
+        workflow_store.link_step(connection, version_id, int(row["id"]), index)
+    return version_id
+
+
+def _execution(
+    connection: sqlite3.Connection, task_id: int, rows: list[sqlite3.Row]
+) -> dict[str, object] | None:
+    if not rows or any(row["state"] == "Running" for row in rows):
+        return None
+    report = replay_execution(connection, task_id)
+    if isinstance(report, Refusal):
+        return None
+    return report
+
+
+def _effect_matches(
+    connection: sqlite3.Connection,
+    step: sqlite3.Row,
+    read_paths: list[str],
+    used: dict[str, int],
+) -> bool:
+    if step["action"] == "read":
+        path = step["path"]
+        seen = used.get(path, 0) + 1
+        if read_paths.count(path) < seen:
+            return False
+        used[path] = seen
+        return True
+    if step["change_id"] is None:
+        return False
+    change = implementation_store.row_change(connection, int(step["change_id"]))
+    return change is not None and int(change["task_id"]) == int(step["task_id"])
 
 
 def _unfinished(connection: sqlite3.Connection, task_id: int) -> sqlite3.Row | None:

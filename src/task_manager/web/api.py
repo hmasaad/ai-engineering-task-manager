@@ -34,6 +34,11 @@ class AdvanceIn(BaseModel):
     name: str = ""
 
 
+class MigrateIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    reason: str = ""
+
+
 class ModelIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
     name: str = ""
@@ -357,9 +362,24 @@ def recover_workflow(request: Request, task_id: int):
     return _respond(request.app.state.workspace.recover_workflow(task_id))
 
 
+@router.post("/tasks/{task_id}/workflow/revise")
+def revise_workflow(request: Request, task_id: int):
+    return _respond(request.app.state.workspace.revise_workflow(task_id))
+
+
+@router.post("/tasks/{task_id}/workflow/migrate")
+def migrate_workflow(request: Request, task_id: int, body: MigrateIn):
+    return _respond(request.app.state.workspace.migrate_workflow(task_id, body.reason))
+
+
 @router.get("/tasks/{task_id}/workflow-replay")
 def workflow_replay(request: Request, task_id: int):
     return _respond(request.app.state.workspace.workflow_replay(task_id))
+
+
+@router.post("/tasks/{task_id}/workflow/replay-execution")
+def replay_workflow_execution(request: Request, task_id: int):
+    return _respond(request.app.state.workspace.replay_workflow_execution(task_id))
 
 
 @router.post("/tasks/{task_id}/subtasks")

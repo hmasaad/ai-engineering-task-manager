@@ -167,6 +167,9 @@
 {% endif %}
 
 <h2>Workflow</h2>
+{% if task.workflow.version %}
+<p id="workflow-version">Version {{ task.workflow.version }}</p>
+{% endif %}
 {% if task.workflow.stopped %}
 <p class="muted" id="workflow-stopped">{{ task.workflow.stopped }}</p>
 {% endif %}
@@ -188,7 +191,24 @@
 {% else %}
 <p class="muted">No workflow steps yet.</p>
 {% endif %}
-{% if task.status == "In Progress" and not task.workflow.started %}
+{% if task.workflow.draft %}
+<h3>Draft version {{ task.workflow.draft.number }}</h3>
+<ol id="workflow-draft">
+  {% for step in task.workflow.draft.steps %}
+  <li>
+    <strong>{{ step.title }}</strong>
+    <span class="status">{{ step.state }}</span>
+    <p class="muted">{% if step.action == "read" %}Read a file{% else %}Create a folder{% endif %} {{ step.path }}</p>
+    {% if task.status == "In Progress" and step.state == "Pending" %}
+    <form method="post" action="/tasks/{{ task.id }}/workflow-steps/{{ step.id }}/remove">
+      <button type="submit" class="secondary">Remove step</button>
+    </form>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ol>
+{% endif %}
+{% if task.status == "In Progress" and (not task.workflow.started or task.workflow.draft) %}
 <form method="post" action="/tasks/{{ task.id }}/workflow-steps">
   <label for="step-title">Step</label>
   <input id="step-title" name="title" type="text">
@@ -220,6 +240,44 @@
   <li>{{ event.title }} <span class="status">{{ event.state }}</span>{% if event.detail %} {{ event.detail }}{% endif %}</li>
   {% endfor %}
 </ol>
+{% endif %}
+{% if task.workflow.execution %}
+<h3>Execution</h3>
+{% if task.workflow.execution.matched %}
+<ol id="workflow-execution">
+  {% for step in task.workflow.execution.matched %}
+  <li>{{ step.title }} <span class="status">{{ step.state }}</span> {{ step.effect }}</li>
+  {% endfor %}
+</ol>
+{% endif %}
+{% if task.workflow.execution.stopped %}
+<p id="workflow-execution-stopped">{{ task.workflow.execution.stopped }}</p>
+{% endif %}
+{% endif %}
+{% if task.workflow.steps and not task.workflow.interrupted %}
+<form method="post" action="/tasks/{{ task.id }}/workflow/replay-execution">
+  <p><button type="submit">Replay execution</button></p>
+</form>
+{% endif %}
+{% if task.workflow.migrations %}
+<h3>Migrations</h3>
+<ul id="workflow-migrations">
+  {% for item in task.workflow.migrations %}
+  <li>Version {{ item.from_version }} superseded: {{ item.reason }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.status == "In Progress" and task.workflow.started and not task.workflow.interrupted and not task.workflow.draft %}
+<form method="post" action="/tasks/{{ task.id }}/workflow/revise">
+  <p><button type="submit">Revise workflow</button></p>
+</form>
+{% endif %}
+{% if task.status == "In Progress" and task.workflow.draft %}
+<form method="post" action="/tasks/{{ task.id }}/workflow/migrate">
+  <label for="migration-reason">Why this workflow is migrating</label>
+  <input id="migration-reason" name="reason" type="text">
+  <p><button type="submit">Migrate workflow</button></p>
+</form>
 {% endif %}
 {% if task.status == "In Progress" and task.workflow.interrupted %}
 <form method="post" action="/tasks/{{ task.id }}/workflow/recover">

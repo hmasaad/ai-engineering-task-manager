@@ -260,6 +260,21 @@ def recover_workflow(request: Request, task_id: int):
     return _after(request, task_id, _workspace(request).recover_workflow(task_id))
 
 
+@router.post("/tasks/{task_id}/workflow/revise")
+def revise_workflow(request: Request, task_id: int):
+    return _after(request, task_id, _workspace(request).revise_workflow(task_id))
+
+
+@router.post("/tasks/{task_id}/workflow/migrate")
+def migrate_workflow(request: Request, task_id: int, reason: str = Form("")):
+    return _after(request, task_id, _workspace(request).migrate_workflow(task_id, reason))
+
+
+@router.post("/tasks/{task_id}/workflow/replay-execution")
+def replay_workflow_execution(request: Request, task_id: int):
+    return _after(request, task_id, _workspace(request).replay_workflow_execution(task_id))
+
+
 @router.post("/tasks/{task_id}/subtasks")
 def add_subtask(request: Request, task_id: int, title: str = Form("")):
     result = _workspace(request).add_subtask(task_id, title)

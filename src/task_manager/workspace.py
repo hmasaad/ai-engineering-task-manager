@@ -181,9 +181,19 @@ class Workspace:
         root = self.project_root
         return self._run(lambda conn, at: workflow.recover(conn, task_id, at, root))
 
+    def revise_workflow(self, task_id: int):
+        return self._run(lambda conn, _at: workflow.revise(conn, task_id))
+
+    def migrate_workflow(self, task_id: int, reason: str | None):
+        return self._run(lambda conn, at: workflow.migrate(conn, task_id, reason, at))
+
     def workflow_replay(self, task_id: int):
         with self._lock:
             return workflow.replay(self.connection, task_id)
+
+    def replay_workflow_execution(self, task_id: int):
+        with self._lock:
+            return workflow.replay_execution(self.connection, task_id)
 
     def get_task(self, task_id: int):
         with self._lock:
