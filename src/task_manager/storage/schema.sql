@@ -466,3 +466,21 @@ CREATE TABLE IF NOT EXISTS workflow_checkpoint_step (
     detail TEXT CHECK (detail IS NULL OR length(trim(detail)) > 0),
     PRIMARY KEY (checkpoint_id, step_id)
 );
+
+CREATE TABLE IF NOT EXISTS workflow_isolated_effect (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    step_id INTEGER NOT NULL UNIQUE REFERENCES workflow_step(id),
+    effect TEXT NOT NULL CHECK (length(trim(effect)) > 0),
+    recorded_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS command_execution (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    action TEXT NOT NULL CHECK (action IN ('read', 'folder')),
+    path TEXT NOT NULL CHECK (length(trim(path)) > 0),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);

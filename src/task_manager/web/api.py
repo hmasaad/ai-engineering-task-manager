@@ -165,6 +165,7 @@ class FileReadIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
     project: str
     file: str
+    execution: str = ""
 
 
 class AssistantChangeIn(BaseModel):
@@ -184,6 +185,7 @@ class FolderIn(BaseModel):
     change_class: str | None = Field(default=None, alias="class")
     stopped: bool = False
     folder: str = ""
+    execution: str = ""
 
 
 class CreateBranchIn(BaseModel):
@@ -433,6 +435,11 @@ def replay_workflow_execution(request: Request, task_id: int):
     return _respond(request.app.state.workspace.replay_workflow_execution(task_id))
 
 
+@router.post("/tasks/{task_id}/workflow/replay-isolated")
+def replay_isolated_effects(request: Request, task_id: int):
+    return _respond(request.app.state.workspace.replay_isolated_effects(task_id))
+
+
 @router.post("/tasks/{task_id}/workflow/outbox")
 def deliver_outbox(request: Request, task_id: int, body: DeliveryIn):
     return _respond(request.app.state.workspace.deliver_outbox(task_id, body.name))
@@ -500,7 +507,9 @@ def record_model_file(request: Request, task_id: int, body: ModelFileIn):
 @router.post("/tasks/{task_id}/file-reads")
 def record_file_read(request: Request, task_id: int, body: FileReadIn):
     return _respond(
-        request.app.state.workspace.record_file_read(task_id, body.project, body.file)
+        request.app.state.workspace.record_file_read(
+            task_id, body.project, body.file, execution=body.execution
+        )
     )
 
 
@@ -514,6 +523,7 @@ def record_folder(request: Request, task_id: int, body: FolderIn):
             body.what_changed,
             body.stopped,
             body.folder,
+            body.execution,
         )
     )
 

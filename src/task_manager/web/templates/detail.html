@@ -301,6 +301,24 @@
   <p><button type="submit">Replay execution</button></p>
 </form>
 {% endif %}
+{% if task.workflow.isolated %}
+<h3>Isolated effects</h3>
+{% if task.workflow.isolated.matched %}
+<ol id="workflow-isolated">
+  {% for step in task.workflow.isolated.matched %}
+  <li>{{ step.title }} {{ step.effect }}</li>
+  {% endfor %}
+</ol>
+{% endif %}
+{% if task.workflow.isolated.stopped %}
+<p id="workflow-isolated-stopped">{{ task.workflow.isolated.stopped }}</p>
+{% endif %}
+{% endif %}
+{% if task.workflow.steps and not task.workflow.interrupted %}
+<form method="post" action="/tasks/{{ task.id }}/workflow/replay-isolated">
+  <p><button type="submit">Replay isolated effects</button></p>
+</form>
+{% endif %}
 <h3>Outbox</h3>
 {% if task.workflow.outbox %}
 <ul id="workflow-outbox">
@@ -416,6 +434,16 @@
 </form>
 {% endif %}
 
+<h2>Executions</h2>
+{% if task.executions %}
+<ul id="command-executions">
+  {% for item in task.executions %}
+  <li>{{ item.name }} — {% if item.action == "read" %}Read a file{% else %}Create a folder{% endif %} {{ item.path }}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No named executions yet.</p>
+{% endif %}
 {% if task.file_reads %}
 <h2>Reads</h2>
 <ul>
@@ -590,6 +618,8 @@
   <textarea id="folder-what" name="what_changed" rows="2"></textarea>
   <label for="folder-path">Folder</label>
   <input id="folder-path" name="folder" type="text">
+  <label for="folder-execution">Execution name</label>
+  <input id="folder-execution" name="execution" type="text">
   <label><input id="folder-stopped" name="stopped" type="checkbox" value="true"> Stop before carrying it out</label>
   <p><button type="submit">Create folder</button></p>
 </form>
@@ -678,6 +708,8 @@
   <input id="read-project" name="project" type="text">
   <label for="read-file">File</label>
   <input id="read-file" name="file" type="text">
+  <label for="read-execution">Execution name</label>
+  <input id="read-execution" name="execution" type="text">
   <p><button type="submit">Read a file</button></p>
 </form>
 <form method="post" action="/tasks/{{ task.id }}/model-files">

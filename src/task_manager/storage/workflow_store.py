@@ -423,6 +423,37 @@ def insert_outbox(
     return True
 
 
+def isolated_effect(connection: sqlite3.Connection, step_id: int) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT step_id, effect
+        FROM workflow_isolated_effect
+        WHERE step_id = ?
+        """,
+        (step_id,),
+    ).fetchone()
+
+
+def insert_isolated_effect(
+    connection: sqlite3.Connection,
+    task_id: int,
+    step_id: int,
+    effect: str,
+    recorded_at: str,
+) -> bool:
+    try:
+        connection.execute(
+            """
+            INSERT INTO workflow_isolated_effect (task_id, step_id, effect, recorded_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (task_id, step_id, effect, recorded_at),
+        )
+    except sqlite3.IntegrityError:
+        return False
+    return True
+
+
 def outbox_messages(connection: sqlite3.Connection, task_id: int) -> list[sqlite3.Row]:
     return connection.execute(
         """

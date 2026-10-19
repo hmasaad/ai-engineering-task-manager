@@ -211,6 +211,10 @@ class Workspace:
         with self._lock:
             return workflow.replay_execution(self.connection, task_id)
 
+    def replay_isolated_effects(self, task_id: int):
+        with self._lock:
+            return workflow.replay_isolated(self.connection, task_id)
+
     def deliver_outbox(self, task_id: int, name: str | None):
         return self._run(lambda conn, at: workflow.deliver(conn, task_id, name, at))
 
@@ -320,11 +324,14 @@ class Workspace:
         project: str | None,
         file_path: str | None,
         assistant_name: str | None = None,
+        execution: str | None = None,
     ):
         del assistant_name
         root = self.project_root
         return self._run(
-            lambda conn, at: file_read.read_file(conn, task_id, project, file_path, at, root)
+            lambda conn, at: file_read.read_file(
+                conn, task_id, project, file_path, at, root, execution
+            )
         )
 
     def record_model_file(
@@ -389,6 +396,7 @@ class Workspace:
         what_changed: str | None,
         stopped: bool,
         folder_path: str | None,
+        execution: str | None = None,
     ):
         root = self.project_root
         return self._run(
@@ -402,6 +410,7 @@ class Workspace:
                 folder_path,
                 at,
                 root,
+                execution,
             )
         )
 

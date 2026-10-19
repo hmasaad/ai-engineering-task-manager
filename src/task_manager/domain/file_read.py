@@ -4,6 +4,7 @@ import sqlite3
 from pathlib import Path
 
 from task_manager.domain.capture import _detail
+from task_manager.domain.execution import earlier, remember
 from task_manager.domain.implementation import (
     FILE_NOT_TEXT,
     FILE_OUTSIDE,
@@ -31,6 +32,7 @@ def read_file(
     file_path: str | None,
     occurred_at: str,
     project_root: Path | None = None,
+    execution: str | None = None,
 ):
     task = task_store.row_task(connection, task_id)
     if task is None:
@@ -38,6 +40,9 @@ def read_file(
     status_refusal = _record_status(task["status"])
     if status_refusal is not None:
         return status_refusal
+    repeated = earlier(connection, int(task["id"]), execution)
+    if repeated is not None:
+        return repeated
     named_project = clean(project)
     if not named_project:
         return bad_request(NAME_PROJECT)
@@ -80,4 +85,5 @@ def read_file(
         assistant_name(connection),
         occurred_at,
     )
+    remember(connection, int(task["id"]), execution, "read", relative, occurred_at)
     return _detail(connection, int(task["id"]))

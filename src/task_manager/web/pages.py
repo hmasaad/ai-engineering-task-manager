@@ -275,6 +275,11 @@ def replay_workflow_execution(request: Request, task_id: int):
     return _after(request, task_id, _workspace(request).replay_workflow_execution(task_id))
 
 
+@router.post("/tasks/{task_id}/workflow/replay-isolated")
+def replay_isolated_effects(request: Request, task_id: int):
+    return _after(request, task_id, _workspace(request).replay_isolated_effects(task_id))
+
+
 @router.post("/tasks/{task_id}/workflow/outbox")
 def deliver_outbox(request: Request, task_id: int, name: str = Form("")):
     return _after(request, task_id, _workspace(request).deliver_outbox(task_id, name))
@@ -383,11 +388,12 @@ def record_file_read(
     task_id: int,
     project: str = Form(""),
     file_path: str = Form("", alias="file"),
+    execution: str = Form(""),
 ):
     return _after(
         request,
         task_id,
-        _workspace(request).record_file_read(task_id, project, file_path),
+        _workspace(request).record_file_read(task_id, project, file_path, execution=execution),
     )
 
 
@@ -426,6 +432,7 @@ def record_folder(
     change_class: str = Form("", alias="class"),
     stopped: str = Form(""),
     folder_path: str = Form("", alias="folder"),
+    execution: str = Form(""),
 ):
     return _after(
         request,
@@ -437,6 +444,7 @@ def record_folder(
             what_changed,
             stopped == "true",
             folder_path,
+            execution,
         ),
     )
 

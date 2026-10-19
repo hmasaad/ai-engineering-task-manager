@@ -38,6 +38,8 @@ NO_DRAFT = "There is no draft version to migrate."
 NAME_REASON = "Name why this workflow is migrating."
 KEEP_RAN = "A step that already ran must stay in the new version."
 NO_REPLAY = "There is no step to replay."
+NO_ISOLATED = "There is no isolated effect to replay."
+MISSING_ISOLATED = "the isolated effect is missing."
 MISSING_EFFECT = "the stored effect is missing."
 STEP_NOT_RUN = "the step has not run."
 NAME_DELIVERY = "Name this delivery."
@@ -380,6 +382,34 @@ def replay_execution(connection: sqlite3.Connection, task_id: int):
     return {"version": version, "matched": matched, "stopped": stopped}
 
 
+def replay_isolated(connection: sqlite3.Connection, task_id: int):
+    if task_store.row_task(connection, task_id) is None:
+        return missing("Task not found.")
+    rows = workflow_store.steps(connection, task_id)
+    if not rows:
+        return conflict(NO_ISOLATED)
+    if any(row["state"] == "Running" for row in rows):
+        return conflict(RECOVER_FIRST)
+    matched: list[dict[str, str]] = []
+    stopped = None
+    for row in rows:
+        if row["state"] == "Completed":
+            seal = workflow_store.isolated_effect(connection, int(row["id"]))
+            if seal is None:
+                stopped = f"Stopped at {row['title']}: {MISSING_ISOLATED}"
+                break
+            matched.append({"title": row["title"], "effect": seal["effect"]})
+            continue
+        if row["state"] == "Pending":
+            stopped = f"Stopped at {row['title']}: {STEP_NOT_RUN}"
+        elif row["state"] == "Waiting":
+            stopped = f"Stopped at {row['title']}: {WAITING}"
+        else:
+            stopped = f"Stopped at {row['title']}: {row['detail']}"
+        break
+    return {"matched": matched, "stopped": stopped}
+
+
 def payload(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
     current = workflow_store.current_version(connection, task_id)
     rows = workflow_store.steps(connection, task_id)
@@ -418,6 +448,7 @@ def payload(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
         "interrupted": any(row["state"] == "Running" for row in rows),
         "replay": _events(connection, task_id),
         "execution": _execution(connection, task_id, rows),
+        "isolated": _isolated(connection, task_id, rows),
         "saga": _saga(rows, workflow_store.compensations(connection, task_id)),
         "compensations": [
             {
@@ -744,6 +775,17 @@ def _execution(
     return report
 
 
+def _isolated(
+    connection: sqlite3.Connection, task_id: int, rows: list[sqlite3.Row]
+) -> dict[str, object] | None:
+    if not rows or any(row["state"] == "Running" for row in rows):
+        return None
+    report = replay_isolated(connection, task_id)
+    if isinstance(report, Refusal):
+        return None
+    return report
+
+
 def _effect_matches(
     connection: sqlite3.Connection,
     step: sqlite3.Row,
@@ -958,6 +1000,13 @@ def _set_outcome(
     _remember(connection, step, state, detail, occurred_at)
     if state == "Completed":
         workflow_store.insert_outbox(
+            connection,
+            int(step["task_id"]),
+            int(step["id"]),
+            step["path"],
+            occurred_at,
+        )
+        workflow_store.insert_isolated_effect(
             connection,
             int(step["task_id"]),
             int(step["id"]),
