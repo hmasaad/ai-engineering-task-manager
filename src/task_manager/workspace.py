@@ -218,6 +218,18 @@ class Workspace:
     def deliver_outbox(self, task_id: int, name: str | None):
         return self._run(lambda conn, at: workflow.deliver(conn, task_id, name, at))
 
+    def retry_delivery(self, task_id: int, name: str | None):
+        return self._run(lambda conn, at: workflow.record_retry(conn, task_id, name, at))
+
+    def replay_dead_letter(self, task_id: int, name: str | None):
+        return self._run(lambda conn, at: workflow.replay_dead_letter(conn, task_id, name, at))
+
+    def run_file_read(self, task_id: int, name: str | None):
+        root = self.project_root
+        return self._run(
+            lambda conn, at: workflow.run_file_read(conn, task_id, name, at, root)
+        )
+
     def reject_outbox(self, task_id: int, name: str | None, reason: str | None):
         return self._run(lambda conn, at: workflow.reject(conn, task_id, name, reason, at))
 

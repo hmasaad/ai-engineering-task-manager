@@ -44,6 +44,21 @@ class DeliveryIn(BaseModel):
     name: str = ""
 
 
+class RetryIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+
+
+class ReplayIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+
+
+class RunIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+
+
 class RejectionIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
     name: str = ""
@@ -443,6 +458,21 @@ def replay_isolated_effects(request: Request, task_id: int):
 @router.post("/tasks/{task_id}/workflow/outbox")
 def deliver_outbox(request: Request, task_id: int, body: DeliveryIn):
     return _respond(request.app.state.workspace.deliver_outbox(task_id, body.name))
+
+
+@router.post("/tasks/{task_id}/workflow/outbox/retry")
+def retry_delivery(request: Request, task_id: int, body: RetryIn):
+    return _respond(request.app.state.workspace.retry_delivery(task_id, body.name))
+
+
+@router.post("/tasks/{task_id}/workflow/dead-letters/replay")
+def replay_dead_letter(request: Request, task_id: int, body: ReplayIn):
+    return _respond(request.app.state.workspace.replay_dead_letter(task_id, body.name))
+
+
+@router.post("/tasks/{task_id}/workflow/runs")
+def run_file_read(request: Request, task_id: int, body: RunIn):
+    return _respond(request.app.state.workspace.run_file_read(task_id, body.name))
 
 
 @router.post("/tasks/{task_id}/workflow/outbox/reject")

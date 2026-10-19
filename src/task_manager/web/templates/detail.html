@@ -329,11 +329,24 @@
 {% else %}
 <p class="muted">No outbox messages yet.</p>
 {% endif %}
+{% if task.workflow.retries %}
+<h3>Delivery attempts</h3>
+<ul id="workflow-retries">
+  {% for item in task.workflow.retries %}
+  <li>Attempts {{ item.attempt_count }}, next {{ item.next_eligible_at }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
 {% if task.status == "In Progress" and task.workflow.outbox | selectattr("state", "equalto", "Pending") | list %}
 <form method="post" action="/tasks/{{ task.id }}/workflow/outbox">
   <label for="delivery-name">Delivery name</label>
   <input id="delivery-name" name="name" type="text">
   <p><button type="submit">Deliver outbox</button></p>
+</form>
+<form method="post" action="/tasks/{{ task.id }}/workflow/outbox/retry">
+  <label for="attempt-name">Attempt name</label>
+  <input id="attempt-name" name="name" type="text">
+  <p><button type="submit">Delivery did not succeed</button></p>
 </form>
 <form method="post" action="/tasks/{{ task.id }}/workflow/outbox/reject">
   <label for="rejection-name">Rejection name</label>
@@ -358,6 +371,21 @@
   <li>{{ item.title }} {{ item.effect }}: {{ item.reason }}</li>
   {% endfor %}
 </ul>
+{% endif %}
+{% if task.workflow.dead_letter_replays %}
+<h3>Replayed dead letters</h3>
+<ul id="workflow-dead-letter-replays">
+  {% for item in task.workflow.dead_letter_replays %}
+  <li>{{ item.name }} returned {{ item.title }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.status == "In Progress" and task.workflow.can_replay_dead_letter %}
+<form method="post" action="/tasks/{{ task.id }}/workflow/dead-letters/replay">
+  <label for="replay-name">Replay name</label>
+  <input id="replay-name" name="name" type="text">
+  <p><button type="submit">Replay dead letter</button></p>
+</form>
 {% endif %}
 {% if task.workflow.inbox %}
 <h3>Inbox</h3>
@@ -420,6 +448,21 @@
   <label for="migration-reason">Why this workflow is migrating</label>
   <input id="migration-reason" name="reason" type="text">
   <p><button type="submit">Migrate workflow</button></p>
+</form>
+{% endif %}
+{% if task.workflow.runs %}
+<h3>File reads run</h3>
+<ul id="workflow-runs">
+  {% for item in task.workflow.runs %}
+  <li>{{ item.name }} read {{ item.title }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.status == "In Progress" and task.workflow.can_run_read %}
+<form method="post" action="/tasks/{{ task.id }}/workflow/runs">
+  <label for="run-name">Run name</label>
+  <input id="run-name" name="name" type="text">
+  <p><button type="submit">Run file read</button></p>
 </form>
 {% endif %}
 {% if task.status == "In Progress" and task.workflow.interrupted %}

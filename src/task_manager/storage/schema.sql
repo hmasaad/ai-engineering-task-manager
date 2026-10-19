@@ -432,6 +432,25 @@ CREATE TABLE IF NOT EXISTS workflow_dead_letter (
     recorded_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS workflow_delivery_retry (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    outbox_id INTEGER NOT NULL REFERENCES workflow_outbox(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    next_eligible_at TEXT NOT NULL CHECK (length(trim(next_eligible_at)) > 0),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS workflow_dead_letter_replay (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    outbox_id INTEGER NOT NULL UNIQUE REFERENCES workflow_outbox(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
 CREATE TABLE IF NOT EXISTS workflow_trace (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     task_id INTEGER NOT NULL UNIQUE REFERENCES task(id),
@@ -473,6 +492,15 @@ CREATE TABLE IF NOT EXISTS workflow_isolated_effect (
     step_id INTEGER NOT NULL UNIQUE REFERENCES workflow_step(id),
     effect TEXT NOT NULL CHECK (length(trim(effect)) > 0),
     recorded_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS workflow_file_run (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    step_id INTEGER NOT NULL REFERENCES workflow_step(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
 );
 
 CREATE TABLE IF NOT EXISTS command_execution (

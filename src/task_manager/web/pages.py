@@ -285,6 +285,21 @@ def deliver_outbox(request: Request, task_id: int, name: str = Form("")):
     return _after(request, task_id, _workspace(request).deliver_outbox(task_id, name))
 
 
+@router.post("/tasks/{task_id}/workflow/outbox/retry")
+def retry_delivery(request: Request, task_id: int, name: str = Form("")):
+    return _after(request, task_id, _workspace(request).retry_delivery(task_id, name))
+
+
+@router.post("/tasks/{task_id}/workflow/dead-letters/replay")
+def replay_dead_letter(request: Request, task_id: int, name: str = Form("")):
+    return _after(request, task_id, _workspace(request).replay_dead_letter(task_id, name))
+
+
+@router.post("/tasks/{task_id}/workflow/runs")
+def run_file_read(request: Request, task_id: int, name: str = Form("")):
+    return _after(request, task_id, _workspace(request).run_file_read(task_id, name))
+
+
 @router.post("/tasks/{task_id}/workflow/checkpoints")
 def take_checkpoint(request: Request, task_id: int, name: str = Form("")):
     return _after(request, task_id, _workspace(request).take_checkpoint(task_id, name))

@@ -1,6 +1,7 @@
 """One ordered workflow on a task. Each advance performs one stored step."""
 
 import sqlite3
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from task_manager.domain.capture import _detail
@@ -48,6 +49,16 @@ NAME_REJECTION = "Name this rejection."
 NAME_POISON = "Name why this message is poison."
 NO_REJECT = "There is no outbox message to reject."
 POISON_LIMIT = 3
+NAME_ATTEMPT = "Name this attempt."
+NO_RETRY = "There is no outbox message to retry."
+NAME_REPLAY = "Name this replay."
+NO_DEAD_LETTER = "There is no dead letter to replay."
+NAME_RUN = "Name this run."
+NO_FILE_READ = "There is no file to read."
+NOT_FILE_READ = "The next step is not a file read."
+NOT_DUE = "This delivery is not due yet."
+RETRY_BOUND = 3
+RETRY_REASON = "The delivery was attempted too many times."
 NAME_CHECKPOINT = "Name this checkpoint."
 NO_CHECKPOINT_WORKFLOW = "There is no workflow to checkpoint."
 CHECKPOINT_NOT_ON_TASK = "That checkpoint is not on this task."
@@ -481,9 +492,31 @@ def payload(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
             }
             for row in workflow_store.dead_letters(connection, task_id)
         ],
+        "dead_letter_replays": [
+            {
+                "name": row["name"],
+                "outbox_id": int(row["outbox_id"]),
+                "title": row["title"],
+            }
+            for row in workflow_store.dead_letter_replays(connection, task_id)
+        ],
+        "can_replay_dead_letter": _can_replay(connection, task_id),
+        "runs": [
+            {"name": row["name"], "title": row["title"]}
+            for row in workflow_store.file_runs(connection, task_id)
+        ],
+        "can_run_read": _can_run_read(connection, task_id),
         "inbox": [
             {"name": row["name"], "outbox_id": int(row["outbox_id"])}
             for row in workflow_store.inbox_entries(connection, task_id)
+        ],
+        "retries": [
+            {
+                "outbox_id": int(row["outbox_id"]),
+                "attempt_count": int(row["attempt_count"]),
+                "next_eligible_at": row["next_eligible_at"],
+            }
+            for row in workflow_store.retry_summaries(connection, task_id)
         ],
         "trace": _trace_report(connection, task_id),
         "checkpoints": _checkpoints(connection, task_id),
@@ -577,11 +610,64 @@ def deliver(connection: sqlite3.Connection, task_id: int, name: str | None, occu
     pending = workflow_store.oldest_pending_outbox(connection, int(task["id"]))
     if pending is None:
         return conflict(NO_OUTBOX)
+    replayed = workflow_store.replay_for_outbox(connection, int(pending["id"])) is not None
+    if not replayed and _before_next_time(connection, int(pending["id"]), occurred_at):
+        return conflict(NOT_DUE)
     workflow_store.mark_outbox_delivered(connection, int(pending["id"]))
     workflow_store.insert_inbox(
         connection, int(task["id"]), kept, int(pending["id"]), occurred_at
     )
     return _detail(connection, int(task["id"]))
+
+
+def record_retry(
+    connection: sqlite3.Connection,
+    task_id: int,
+    name: str | None,
+    occurred_at: str,
+):
+    task = task_store.row_task(connection, task_id)
+    if task is None:
+        return missing("Task not found.")
+    status_refusal = _record_status(task["status"])
+    if status_refusal is not None:
+        return status_refusal
+    kept = clean(name)
+    if not kept:
+        return bad_request(NAME_ATTEMPT)
+    if workflow_store.retry_entry(connection, int(task["id"]), kept) is not None:
+        return _detail(connection, int(task["id"]))
+    pending = workflow_store.oldest_pending_outbox(connection, int(task["id"]))
+    if pending is None:
+        return conflict(NO_RETRY)
+    if _before_next_time(connection, int(pending["id"]), occurred_at):
+        return conflict(NOT_DUE)
+    count = workflow_store.retry_count(connection, int(pending["id"]))
+    if count >= RETRY_BOUND:
+        return _detail(connection, int(task["id"]))
+    workflow_store.insert_retry(
+        connection,
+        int(task["id"]),
+        int(pending["id"]),
+        kept,
+        _minute_later(occurred_at),
+        occurred_at,
+    )
+    if count + 1 >= RETRY_BOUND:
+        workflow_store.insert_dead_letter(
+            connection, int(task["id"]), int(pending["id"]), RETRY_REASON, occurred_at
+        )
+    return _detail(connection, int(task["id"]))
+
+
+def _before_next_time(connection: sqlite3.Connection, outbox_id: int, occurred_at: str) -> bool:
+    due = workflow_store.next_eligible(connection, outbox_id)
+    return due is not None and occurred_at < due
+
+
+def _minute_later(occurred_at: str) -> str:
+    parsed = datetime.strptime(occurred_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    return (parsed + timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def reject(
@@ -618,8 +704,94 @@ def reject(
     return _detail(connection, int(task["id"]))
 
 
+def replay_dead_letter(
+    connection: sqlite3.Connection,
+    task_id: int,
+    name: str | None,
+    occurred_at: str,
+):
+    task = task_store.row_task(connection, task_id)
+    if task is None:
+        return missing("Task not found.")
+    status_refusal = _record_status(task["status"])
+    if status_refusal is not None:
+        return status_refusal
+    kept = clean(name)
+    if not kept:
+        return bad_request(NAME_REPLAY)
+    if workflow_store.replay_entry(connection, int(task["id"]), kept) is not None:
+        return _detail(connection, int(task["id"]))
+    dead = workflow_store.oldest_unreplayed_dead_letter(connection, int(task["id"]))
+    if dead is None:
+        return conflict(NO_DEAD_LETTER)
+    workflow_store.insert_replay(
+        connection, int(task["id"]), int(dead["outbox_id"]), kept, occurred_at
+    )
+    return _detail(connection, int(task["id"]))
+
+
 def _dead_ids(connection: sqlite3.Connection, task_id: int) -> set[int]:
-    return {int(row["outbox_id"]) for row in workflow_store.dead_letters(connection, task_id)}
+    replayed = {
+        int(row["outbox_id"]) for row in workflow_store.dead_letter_replays(connection, task_id)
+    }
+    return {
+        int(row["outbox_id"])
+        for row in workflow_store.dead_letters(connection, task_id)
+        if int(row["outbox_id"]) not in replayed
+    }
+
+
+def _can_replay(connection: sqlite3.Connection, task_id: int) -> bool:
+    return workflow_store.oldest_unreplayed_dead_letter(connection, task_id) is not None
+
+
+def run_file_read(
+    connection: sqlite3.Connection,
+    task_id: int,
+    name: str | None,
+    occurred_at: str,
+    project_root: Path,
+):
+    task = task_store.row_task(connection, task_id)
+    if task is None:
+        return missing("Task not found.")
+    status_refusal = _record_status(task["status"])
+    if status_refusal is not None:
+        return status_refusal
+    kept = clean(name)
+    if not kept:
+        return bad_request(NAME_RUN)
+    if workflow_store.run_entry(connection, int(task["id"]), kept) is not None:
+        return _detail(connection, int(task["id"]))
+    rows = workflow_store.steps(connection, int(task["id"]))
+    if any(row["state"] == "Running" for row in rows):
+        return conflict(RECOVER_FIRST)
+    current = _unfinished(connection, int(task["id"]))
+    if current is None:
+        return conflict(NO_FILE_READ)
+    if current["action"] != "read" or current["state"] not in ("Pending", "Failed"):
+        return conflict(NOT_FILE_READ)
+    step_id = int(current["id"])
+    prepared = prepare(connection, int(task["id"]), occurred_at, None)
+    if not isinstance(prepared, ReadyToFinish):
+        return prepared
+    finished = finish(connection, int(task["id"]), occurred_at, project_root)
+    if isinstance(finished, Refusal):
+        return finished
+    workflow_store.insert_run(connection, int(task["id"]), step_id, kept, occurred_at)
+    return _detail(connection, int(task["id"]))
+
+
+def _can_run_read(connection: sqlite3.Connection, task_id: int) -> bool:
+    rows = workflow_store.steps(connection, task_id)
+    if any(row["state"] == "Running" for row in rows):
+        return False
+    current = _unfinished(connection, task_id)
+    return (
+        current is not None
+        and current["action"] == "read"
+        and current["state"] in ("Pending", "Failed")
+    )
 
 
 def compensate(

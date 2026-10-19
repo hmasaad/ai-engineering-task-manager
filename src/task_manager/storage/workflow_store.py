@@ -475,12 +475,17 @@ def oldest_pending_outbox(connection: sqlite3.Connection, task_id: int) -> sqlit
         FROM workflow_outbox
         WHERE task_id = ? AND state = 'Pending'
           AND id NOT IN (
-              SELECT outbox_id FROM workflow_dead_letter WHERE task_id = ?
+              SELECT workflow_dead_letter.outbox_id
+              FROM workflow_dead_letter
+              WHERE workflow_dead_letter.task_id = ?
+                AND workflow_dead_letter.outbox_id NOT IN (
+                    SELECT outbox_id FROM workflow_dead_letter_replay WHERE task_id = ?
+                )
           )
         ORDER BY id ASC
         LIMIT 1
         """,
-        (task_id, task_id),
+        (task_id, task_id, task_id),
     ).fetchone()
 
 
@@ -777,6 +782,204 @@ def checkpoint_steps(connection: sqlite3.Connection, checkpoint_id: int) -> list
         ORDER BY position ASC
         """,
         (checkpoint_id,),
+    ).fetchall()
+
+
+def oldest_unreplayed_dead_letter(
+    connection: sqlite3.Connection, task_id: int
+) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT outbox_id
+        FROM workflow_dead_letter
+        WHERE task_id = ?
+          AND outbox_id NOT IN (
+              SELECT outbox_id FROM workflow_dead_letter_replay WHERE task_id = ?
+          )
+        ORDER BY id ASC
+        LIMIT 1
+        """,
+        (task_id, task_id),
+    ).fetchone()
+
+
+def replay_entry(
+    connection: sqlite3.Connection, task_id: int, name: str
+) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT task_id, name, outbox_id
+        FROM workflow_dead_letter_replay
+        WHERE task_id = ? AND name = ?
+        """,
+        (task_id, name),
+    ).fetchone()
+
+
+def replay_for_outbox(connection: sqlite3.Connection, outbox_id: int) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT outbox_id
+        FROM workflow_dead_letter_replay
+        WHERE outbox_id = ?
+        """,
+        (outbox_id,),
+    ).fetchone()
+
+
+def insert_replay(
+    connection: sqlite3.Connection,
+    task_id: int,
+    outbox_id: int,
+    name: str,
+    recorded_at: str,
+) -> bool:
+    try:
+        connection.execute(
+            """
+            INSERT INTO workflow_dead_letter_replay (task_id, outbox_id, name, recorded_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (task_id, outbox_id, name, recorded_at),
+        )
+    except sqlite3.IntegrityError:
+        return False
+    return True
+
+
+def dead_letter_replays(connection: sqlite3.Connection, task_id: int) -> list[sqlite3.Row]:
+    return connection.execute(
+        """
+        SELECT
+            workflow_dead_letter_replay.name,
+            workflow_dead_letter_replay.outbox_id,
+            workflow_step.title
+        FROM workflow_dead_letter_replay
+        JOIN workflow_outbox ON workflow_outbox.id = workflow_dead_letter_replay.outbox_id
+        JOIN workflow_step ON workflow_step.id = workflow_outbox.step_id
+        WHERE workflow_dead_letter_replay.task_id = ?
+        ORDER BY workflow_dead_letter_replay.id ASC
+        """,
+        (task_id,),
+    ).fetchall()
+
+
+def run_entry(
+    connection: sqlite3.Connection, task_id: int, name: str
+) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT task_id, name, step_id
+        FROM workflow_file_run
+        WHERE task_id = ? AND name = ?
+        """,
+        (task_id, name),
+    ).fetchone()
+
+
+def insert_run(
+    connection: sqlite3.Connection,
+    task_id: int,
+    step_id: int,
+    name: str,
+    recorded_at: str,
+) -> bool:
+    try:
+        connection.execute(
+            """
+            INSERT INTO workflow_file_run (task_id, step_id, name, recorded_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (task_id, step_id, name, recorded_at),
+        )
+    except sqlite3.IntegrityError:
+        return False
+    return True
+
+
+def file_runs(connection: sqlite3.Connection, task_id: int) -> list[sqlite3.Row]:
+    return connection.execute(
+        """
+        SELECT workflow_file_run.name, workflow_step.title
+        FROM workflow_file_run
+        JOIN workflow_step ON workflow_step.id = workflow_file_run.step_id
+        WHERE workflow_file_run.task_id = ?
+        ORDER BY workflow_file_run.id ASC
+        """,
+        (task_id,),
+    ).fetchall()
+
+
+def retry_entry(
+    connection: sqlite3.Connection, task_id: int, name: str
+) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT task_id, name, outbox_id
+        FROM workflow_delivery_retry
+        WHERE task_id = ? AND name = ?
+        """,
+        (task_id, name),
+    ).fetchone()
+
+
+def insert_retry(
+    connection: sqlite3.Connection,
+    task_id: int,
+    outbox_id: int,
+    name: str,
+    next_eligible_at: str,
+    recorded_at: str,
+) -> bool:
+    try:
+        connection.execute(
+            """
+            INSERT INTO workflow_delivery_retry (
+                task_id, outbox_id, name, next_eligible_at, recorded_at
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (task_id, outbox_id, name, next_eligible_at, recorded_at),
+        )
+    except sqlite3.IntegrityError:
+        return False
+    return True
+
+
+def retry_count(connection: sqlite3.Connection, outbox_id: int) -> int:
+    row = connection.execute(
+        "SELECT COUNT(*) AS count FROM workflow_delivery_retry WHERE outbox_id = ?",
+        (outbox_id,),
+    ).fetchone()
+    return int(row["count"])
+
+
+def next_eligible(connection: sqlite3.Connection, outbox_id: int) -> str | None:
+    row = connection.execute(
+        """
+        SELECT next_eligible_at
+        FROM workflow_delivery_retry
+        WHERE outbox_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (outbox_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return str(row["next_eligible_at"])
+
+
+def retry_summaries(connection: sqlite3.Connection, task_id: int) -> list[sqlite3.Row]:
+    return connection.execute(
+        """
+        SELECT outbox_id, COUNT(*) AS attempt_count, MAX(next_eligible_at) AS next_eligible_at
+        FROM workflow_delivery_retry
+        WHERE task_id = ?
+        GROUP BY outbox_id
+        ORDER BY outbox_id ASC
+        """,
+        (task_id,),
     ).fetchall()
 
 
