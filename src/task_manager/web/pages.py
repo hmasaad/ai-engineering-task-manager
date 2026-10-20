@@ -368,6 +368,189 @@ def serve_objective(request: Request, task_id: int, name: str = Form("")):
     return _after(request, task_id, _workspace(request).serve_objective(task_id, name))
 
 
+@router.post("/tasks/{task_id}/schedule-steps")
+def name_step(
+    request: Request, task_id: int, name: str = Form(""), length: str = Form("")
+):
+    return _after(request, task_id, _workspace(request).name_step(task_id, name, length))
+
+
+@router.post("/tasks/{task_id}/schedule-links")
+def add_dependency(
+    request: Request, task_id: int, step: str = Form(""), follows: str = Form("")
+):
+    return _after(
+        request, task_id, _workspace(request).add_dependency(task_id, step, follows)
+    )
+
+
+@router.post("/tasks/{task_id}/schedule-deadlines")
+def set_schedule_deadline(request: Request, task_id: int, deadline: str = Form("")):
+    return _after(
+        request, task_id, _workspace(request).set_schedule_deadline(task_id, deadline)
+    )
+
+
+@router.post("/tasks/{task_id}/opt-activities")
+def name_activity(
+    request: Request, task_id: int, name: str = Form(""), length: str = Form("")
+):
+    return _after(
+        request, task_id, _workspace(request).name_activity(task_id, name, length)
+    )
+
+
+@router.post("/tasks/{task_id}/opt-constraints")
+def add_constraint(
+    request: Request, task_id: int, activity: str = Form(""), after: str = Form("")
+):
+    return _after(
+        request, task_id, _workspace(request).add_constraint(task_id, activity, after)
+    )
+
+
+@router.post("/tasks/{task_id}/opt-capacities")
+def set_capacity(request: Request, task_id: int, capacity: str = Form("")):
+    return _after(request, task_id, _workspace(request).set_capacity(task_id, capacity))
+
+
+@router.post("/tasks/{task_id}/opt-plans")
+def optimize_schedule(request: Request, task_id: int):
+    return _after(request, task_id, _workspace(request).optimize_schedule(task_id))
+
+
+@router.post("/tasks/{task_id}/learn-outcomes")
+def record_outcome(
+    request: Request,
+    task_id: int,
+    name: str = Form(""),
+    kind: str = Form(""),
+    length: str = Form(""),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).record_outcome(task_id, name, kind, length),
+    )
+
+
+@router.post("/tasks/{task_id}/learn-forecasts")
+def name_forecast(
+    request: Request, task_id: int, name: str = Form(""), kind: str = Form("")
+):
+    return _after(
+        request, task_id, _workspace(request).name_forecast(task_id, name, kind)
+    )
+
+
+@router.post("/tasks/{task_id}/learn-predictions")
+def predict_schedule(request: Request, task_id: int):
+    return _after(request, task_id, _workspace(request).predict_schedule(task_id))
+
+
+@router.post("/tasks/{task_id}/bandit-actions")
+def name_bandit_action(request: Request, task_id: int, name: str = Form("")):
+    return _after(request, task_id, _workspace(request).name_bandit_action(task_id, name))
+
+
+@router.post("/tasks/{task_id}/bandit-contexts")
+def name_bandit_context(request: Request, task_id: int, name: str = Form("")):
+    return _after(request, task_id, _workspace(request).name_bandit_context(task_id, name))
+
+
+@router.post("/tasks/{task_id}/bandit-trials")
+def record_bandit_trial(
+    request: Request,
+    task_id: int,
+    name: str = Form(""),
+    context: str = Form(""),
+    action: str = Form(""),
+    reward: str = Form(""),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).record_bandit_trial(task_id, name, context, action, reward),
+    )
+
+
+@router.post("/tasks/{task_id}/bandit-choices")
+def choose_bandit_action(request: Request, task_id: int, context: str = Form("")):
+    return _after(
+        request, task_id, _workspace(request).choose_bandit_action(task_id, context)
+    )
+
+
+@router.post("/tasks/{task_id}/policy-logs")
+def record_logged_step(
+    request: Request,
+    task_id: int,
+    name: str = Form(""),
+    state: str = Form(""),
+    action: str = Form(""),
+    reward: str = Form(""),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).record_logged_step(task_id, name, state, action, reward),
+    )
+
+
+@router.post("/tasks/{task_id}/policy-rules")
+def name_policy_rule(
+    request: Request, task_id: int, state: str = Form(""), action: str = Form("")
+):
+    return _after(
+        request, task_id, _workspace(request).name_policy_rule(task_id, state, action)
+    )
+
+
+@router.post("/tasks/{task_id}/policy-scores")
+def evaluate_policy(request: Request, task_id: int):
+    return _after(request, task_id, _workspace(request).evaluate_policy(task_id))
+
+
+@router.post("/tasks/{task_id}/safe-actions")
+def name_safe_action(
+    request: Request, task_id: int, name: str = Form(""), risk: str = Form("")
+):
+    return _after(
+        request, task_id, _workspace(request).name_safe_action(task_id, name, risk)
+    )
+
+
+@router.post("/tasks/{task_id}/safe-probes")
+def record_probe(
+    request: Request,
+    task_id: int,
+    name: str = Form(""),
+    state: str = Form(""),
+    action: str = Form(""),
+    reward: str = Form(""),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).record_probe(task_id, name, state, action, reward),
+    )
+
+
+@router.post("/tasks/{task_id}/safe-effects")
+def compare_actions(
+    request: Request,
+    task_id: int,
+    state: str = Form(""),
+    action: str = Form(""),
+    instead: str = Form(""),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).compare_actions(task_id, state, action, instead),
+    )
+
+
 @router.post("/tasks/{task_id}/workflow/checkpoints")
 def take_checkpoint(request: Request, task_id: int, name: str = Form("")):
     return _after(request, task_id, _workspace(request).take_checkpoint(task_id, name))

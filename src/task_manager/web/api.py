@@ -122,6 +122,106 @@ class ObjectiveServiceIn(BaseModel):
     name: str = ""
 
 
+class ScheduleStepIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+    length: str = ""
+
+
+class ScheduleLinkIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    step: str = ""
+    follows: str = ""
+
+
+class ScheduleDeadlineIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    deadline: str = ""
+
+
+class ActivityIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+    length: str = ""
+
+
+class ConstraintIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    activity: str = ""
+    after: str = ""
+
+
+class CapacityIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    capacity: str = ""
+
+
+class OutcomeIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+    kind: str = ""
+    length: str = ""
+
+
+class ForecastIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+    kind: str = ""
+
+
+class BanditNameIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+
+
+class BanditTrialIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+    context: str = ""
+    action: str = ""
+    reward: str = ""
+
+
+class BanditChoiceIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    context: str = ""
+
+
+class PolicyLogIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+    state: str = ""
+    action: str = ""
+    reward: str = ""
+
+
+class PolicyRuleIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    state: str = ""
+    action: str = ""
+
+
+class SafeActionIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+    risk: str = ""
+
+
+class SafeProbeIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+    state: str = ""
+    action: str = ""
+    reward: str = ""
+
+
+class SafeEffectIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    state: str = ""
+    action: str = ""
+    instead: str = ""
+
+
 class RejectionIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
     name: str = ""
@@ -598,6 +698,142 @@ def set_objective(request: Request, task_id: int, body: ObjectiveIn):
 @router.post("/tasks/{task_id}/objective-services")
 def serve_objective(request: Request, task_id: int, body: ObjectiveServiceIn):
     return _respond(request.app.state.workspace.serve_objective(task_id, body.name))
+
+
+@router.post("/tasks/{task_id}/schedule-steps")
+def name_step(request: Request, task_id: int, body: ScheduleStepIn):
+    return _respond(
+        request.app.state.workspace.name_step(task_id, body.name, body.length)
+    )
+
+
+@router.post("/tasks/{task_id}/schedule-links")
+def add_dependency(request: Request, task_id: int, body: ScheduleLinkIn):
+    return _respond(
+        request.app.state.workspace.add_dependency(task_id, body.step, body.follows)
+    )
+
+
+@router.post("/tasks/{task_id}/schedule-deadlines")
+def set_schedule_deadline(request: Request, task_id: int, body: ScheduleDeadlineIn):
+    return _respond(
+        request.app.state.workspace.set_schedule_deadline(task_id, body.deadline)
+    )
+
+
+@router.post("/tasks/{task_id}/opt-activities")
+def name_activity(request: Request, task_id: int, body: ActivityIn):
+    return _respond(
+        request.app.state.workspace.name_activity(task_id, body.name, body.length)
+    )
+
+
+@router.post("/tasks/{task_id}/opt-constraints")
+def add_constraint(request: Request, task_id: int, body: ConstraintIn):
+    return _respond(
+        request.app.state.workspace.add_constraint(task_id, body.activity, body.after)
+    )
+
+
+@router.post("/tasks/{task_id}/opt-capacities")
+def set_capacity(request: Request, task_id: int, body: CapacityIn):
+    return _respond(request.app.state.workspace.set_capacity(task_id, body.capacity))
+
+
+@router.post("/tasks/{task_id}/opt-plans")
+def optimize_schedule(request: Request, task_id: int):
+    return _respond(request.app.state.workspace.optimize_schedule(task_id))
+
+
+@router.post("/tasks/{task_id}/learn-outcomes")
+def record_outcome(request: Request, task_id: int, body: OutcomeIn):
+    return _respond(
+        request.app.state.workspace.record_outcome(task_id, body.name, body.kind, body.length)
+    )
+
+
+@router.post("/tasks/{task_id}/learn-forecasts")
+def name_forecast(request: Request, task_id: int, body: ForecastIn):
+    return _respond(
+        request.app.state.workspace.name_forecast(task_id, body.name, body.kind)
+    )
+
+
+@router.post("/tasks/{task_id}/learn-predictions")
+def predict_schedule(request: Request, task_id: int):
+    return _respond(request.app.state.workspace.predict_schedule(task_id))
+
+
+@router.post("/tasks/{task_id}/bandit-actions")
+def name_bandit_action(request: Request, task_id: int, body: BanditNameIn):
+    return _respond(request.app.state.workspace.name_bandit_action(task_id, body.name))
+
+
+@router.post("/tasks/{task_id}/bandit-contexts")
+def name_bandit_context(request: Request, task_id: int, body: BanditNameIn):
+    return _respond(request.app.state.workspace.name_bandit_context(task_id, body.name))
+
+
+@router.post("/tasks/{task_id}/bandit-trials")
+def record_bandit_trial(request: Request, task_id: int, body: BanditTrialIn):
+    return _respond(
+        request.app.state.workspace.record_bandit_trial(
+            task_id, body.name, body.context, body.action, body.reward
+        )
+    )
+
+
+@router.post("/tasks/{task_id}/bandit-choices")
+def choose_bandit_action(request: Request, task_id: int, body: BanditChoiceIn):
+    return _respond(
+        request.app.state.workspace.choose_bandit_action(task_id, body.context)
+    )
+
+
+@router.post("/tasks/{task_id}/policy-logs")
+def record_logged_step(request: Request, task_id: int, body: PolicyLogIn):
+    return _respond(
+        request.app.state.workspace.record_logged_step(
+            task_id, body.name, body.state, body.action, body.reward
+        )
+    )
+
+
+@router.post("/tasks/{task_id}/policy-rules")
+def name_policy_rule(request: Request, task_id: int, body: PolicyRuleIn):
+    return _respond(
+        request.app.state.workspace.name_policy_rule(task_id, body.state, body.action)
+    )
+
+
+@router.post("/tasks/{task_id}/policy-scores")
+def evaluate_policy(request: Request, task_id: int):
+    return _respond(request.app.state.workspace.evaluate_policy(task_id))
+
+
+@router.post("/tasks/{task_id}/safe-actions")
+def name_safe_action(request: Request, task_id: int, body: SafeActionIn):
+    return _respond(
+        request.app.state.workspace.name_safe_action(task_id, body.name, body.risk)
+    )
+
+
+@router.post("/tasks/{task_id}/safe-probes")
+def record_probe(request: Request, task_id: int, body: SafeProbeIn):
+    return _respond(
+        request.app.state.workspace.record_probe(
+            task_id, body.name, body.state, body.action, body.reward
+        )
+    )
+
+
+@router.post("/tasks/{task_id}/safe-effects")
+def compare_actions(request: Request, task_id: int, body: SafeEffectIn):
+    return _respond(
+        request.app.state.workspace.compare_actions(
+            task_id, body.state, body.action, body.instead
+        )
+    )
 
 
 @router.post("/tasks/{task_id}/workflow/outbox/reject")

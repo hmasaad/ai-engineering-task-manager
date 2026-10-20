@@ -636,3 +636,198 @@ CREATE TABLE IF NOT EXISTS slo_service (
     recorded_at TEXT NOT NULL,
     UNIQUE (task_id, name)
 );
+
+CREATE TABLE IF NOT EXISTS path_step (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    length INTEGER NOT NULL CHECK (length IN (1, 2)),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS path_link (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    step_id INTEGER NOT NULL UNIQUE REFERENCES path_step(id),
+    predecessor_id INTEGER NOT NULL REFERENCES path_step(id),
+    recorded_at TEXT NOT NULL,
+    CHECK (step_id != predecessor_id)
+);
+
+CREATE TABLE IF NOT EXISTS path_deadline (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL UNIQUE REFERENCES task(id),
+    deadline TEXT NOT NULL CHECK (length(trim(deadline)) > 0),
+    recorded_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS opt_activity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    length INTEGER NOT NULL CHECK (length IN (1, 2)),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS opt_constraint (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    activity_id INTEGER NOT NULL REFERENCES opt_activity(id),
+    after_id INTEGER NOT NULL REFERENCES opt_activity(id),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (activity_id, after_id),
+    CHECK (activity_id != after_id)
+);
+
+CREATE TABLE IF NOT EXISTS opt_capacity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL UNIQUE REFERENCES task(id),
+    capacity INTEGER NOT NULL CHECK (capacity IN (1, 2)),
+    recorded_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS opt_plan (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL UNIQUE REFERENCES task(id),
+    finish INTEGER NOT NULL CHECK (finish >= 0),
+    recorded_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS opt_placement (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plan_id INTEGER NOT NULL REFERENCES opt_plan(id),
+    activity_id INTEGER NOT NULL REFERENCES opt_activity(id),
+    start INTEGER NOT NULL CHECK (start >= 0),
+    UNIQUE (plan_id, activity_id)
+);
+
+CREATE TABLE IF NOT EXISTS learn_outcome (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    kind TEXT NOT NULL CHECK (length(trim(kind)) > 0),
+    length INTEGER NOT NULL CHECK (length IN (1, 2)),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS learn_forecast (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    kind TEXT NOT NULL CHECK (length(trim(kind)) > 0),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS learn_plan (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL UNIQUE REFERENCES task(id),
+    finish INTEGER NOT NULL CHECK (finish >= 0),
+    recorded_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS learn_placement (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plan_id INTEGER NOT NULL REFERENCES learn_plan(id),
+    forecast_id INTEGER NOT NULL REFERENCES learn_forecast(id),
+    predicted INTEGER NOT NULL CHECK (predicted IN (1, 2)),
+    start INTEGER NOT NULL CHECK (start >= 0),
+    UNIQUE (plan_id, forecast_id)
+);
+
+CREATE TABLE IF NOT EXISTS bandit_action (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS bandit_context (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS bandit_trial (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    context_id INTEGER NOT NULL REFERENCES bandit_context(id),
+    action_id INTEGER NOT NULL REFERENCES bandit_action(id),
+    reward INTEGER NOT NULL CHECK (reward IN (1, 2)),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS bandit_choice (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL UNIQUE REFERENCES task(id),
+    context_id INTEGER NOT NULL REFERENCES bandit_context(id),
+    action_id INTEGER NOT NULL REFERENCES bandit_action(id),
+    recorded_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS eval_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    state TEXT NOT NULL CHECK (length(trim(state)) > 0),
+    action TEXT NOT NULL CHECK (length(trim(action)) > 0),
+    reward INTEGER NOT NULL CHECK (reward IN (1, 2)),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS eval_rule (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    state TEXT NOT NULL CHECK (length(trim(state)) > 0),
+    action TEXT NOT NULL CHECK (length(trim(action)) > 0),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, state)
+);
+
+CREATE TABLE IF NOT EXISTS eval_score (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL UNIQUE REFERENCES task(id),
+    total INTEGER NOT NULL CHECK (total >= 0),
+    count INTEGER NOT NULL CHECK (count >= 1),
+    recorded_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS safe_action (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    risk INTEGER NOT NULL CHECK (risk IN (1, 2)),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS safe_probe (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    state TEXT NOT NULL CHECK (length(trim(state)) > 0),
+    action_id INTEGER NOT NULL REFERENCES safe_action(id),
+    reward INTEGER NOT NULL CHECK (reward IN (1, 2)),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS safe_effect (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL UNIQUE REFERENCES task(id),
+    state TEXT NOT NULL CHECK (length(trim(state)) > 0),
+    action TEXT NOT NULL CHECK (length(trim(action)) > 0),
+    instead TEXT NOT NULL CHECK (length(trim(instead)) > 0),
+    effect INTEGER NOT NULL CHECK (effect IN (-1, 0, 1)),
+    recorded_at TEXT NOT NULL,
+    CHECK (action != instead)
+);

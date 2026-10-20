@@ -5,20 +5,26 @@ from pathlib import Path
 
 from task_manager.clock import ScriptedClock, SystemClock, format_time
 from task_manager.domain import (
+    bandit,
     branch,
     capture,
     commit_file,
     decisions,
     delete_file,
     dependency,
+    evaluation,
     file_read,
     folder,
     implementation,
     instruction,
+    learning,
     model_file,
+    optimization,
+    paths,
     priority,
     pull_request,
     requirement,
+    safety,
     schedule,
     slo,
     status,
@@ -275,6 +281,116 @@ class Workspace:
 
     def serve_objective(self, task_id: int, name: str | None):
         return self._run(lambda conn, at: slo.serve_objective(conn, task_id, name, at))
+
+    def name_step(self, task_id: int, name: str | None, length: str | None):
+        return self._run(lambda conn, at: paths.name_step(conn, task_id, name, length, at))
+
+    def add_dependency(self, task_id: int, step: str | None, follows: str | None):
+        return self._run(
+            lambda conn, at: paths.add_dependency(conn, task_id, step, follows, at)
+        )
+
+    def set_schedule_deadline(self, task_id: int, deadline: str | None):
+        return self._run(lambda conn, at: paths.set_deadline(conn, task_id, deadline, at))
+
+    def name_activity(self, task_id: int, name: str | None, length: str | None):
+        return self._run(
+            lambda conn, at: optimization.name_activity(conn, task_id, name, length, at)
+        )
+
+    def add_constraint(self, task_id: int, activity: str | None, after: str | None):
+        return self._run(
+            lambda conn, at: optimization.add_constraint(conn, task_id, activity, after, at)
+        )
+
+    def set_capacity(self, task_id: int, capacity: str | None):
+        return self._run(
+            lambda conn, at: optimization.set_capacity(conn, task_id, capacity, at)
+        )
+
+    def optimize_schedule(self, task_id: int):
+        return self._run(lambda conn, at: optimization.optimize_schedule(conn, task_id, at))
+
+    def record_outcome(
+        self, task_id: int, name: str | None, kind: str | None, length: str | None
+    ):
+        return self._run(
+            lambda conn, at: learning.record_outcome(conn, task_id, name, kind, length, at)
+        )
+
+    def name_forecast(self, task_id: int, name: str | None, kind: str | None):
+        return self._run(
+            lambda conn, at: learning.name_forecast(conn, task_id, name, kind, at)
+        )
+
+    def predict_schedule(self, task_id: int):
+        return self._run(lambda conn, at: learning.predict_schedule(conn, task_id, at))
+
+    def name_bandit_action(self, task_id: int, name: str | None):
+        return self._run(lambda conn, at: bandit.name_action(conn, task_id, name, at))
+
+    def name_bandit_context(self, task_id: int, name: str | None):
+        return self._run(lambda conn, at: bandit.name_context(conn, task_id, name, at))
+
+    def record_bandit_trial(
+        self,
+        task_id: int,
+        name: str | None,
+        context: str | None,
+        action: str | None,
+        reward: str | None,
+    ):
+        return self._run(
+            lambda conn, at: bandit.record_trial(
+                conn, task_id, name, context, action, reward, at
+            )
+        )
+
+    def choose_bandit_action(self, task_id: int, context: str | None):
+        return self._run(lambda conn, at: bandit.choose_action(conn, task_id, context, at))
+
+    def record_logged_step(
+        self,
+        task_id: int,
+        name: str | None,
+        state: str | None,
+        action: str | None,
+        reward: str | None,
+    ):
+        return self._run(
+            lambda conn, at: evaluation.record_log(
+                conn, task_id, name, state, action, reward, at
+            )
+        )
+
+    def name_policy_rule(self, task_id: int, state: str | None, action: str | None):
+        return self._run(
+            lambda conn, at: evaluation.name_rule(conn, task_id, state, action, at)
+        )
+
+    def evaluate_policy(self, task_id: int):
+        return self._run(lambda conn, at: evaluation.evaluate(conn, task_id, at))
+
+    def name_safe_action(self, task_id: int, name: str, risk: str):
+        return self._run(
+            lambda conn, at: safety.name_action(conn, task_id, name, risk, at)
+        )
+
+    def record_probe(
+        self, task_id: int, name: str, state: str, action: str, reward: str
+    ):
+        return self._run(
+            lambda conn, at: safety.record_probe(
+                conn, task_id, name, state, action, reward, at
+            )
+        )
+
+    def compare_actions(self, task_id: int, state: str, action: str, instead: str):
+        return self._run(
+            lambda conn, at: safety.compare_actions(
+                conn, task_id, state, action, instead, at
+            )
+        )
 
     def reject_outbox(self, task_id: int, name: str | None, reason: str | None):
         return self._run(lambda conn, at: workflow.reject(conn, task_id, name, reason, at))

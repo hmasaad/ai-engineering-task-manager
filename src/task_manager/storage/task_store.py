@@ -274,6 +274,12 @@ def task_detail(connection: sqlite3.Connection, task_id: int) -> dict[str, objec
         "schedule": _schedule(connection, task_id),
         "priority": _priority(connection, task_id),
         "slo": _slo(connection, task_id),
+        "paths": _paths(connection, task_id),
+        "optimization": _optimization(connection, task_id),
+        "learning": _learning(connection, task_id),
+        "bandit": _bandit(connection, task_id),
+        "evaluation": _evaluation(connection, task_id),
+        "safety": _safety(connection, task_id),
     }
 
 
@@ -322,6 +328,42 @@ def _priority(connection: sqlite3.Connection, task_id: int) -> dict[str, object]
 
 def _slo(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
     from task_manager.domain.slo import payload
+
+    return payload(connection, task_id)
+
+
+def _paths(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
+    from task_manager.domain.paths import payload
+
+    return payload(connection, task_id)
+
+
+def _optimization(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
+    from task_manager.domain.optimization import payload
+
+    return payload(connection, task_id)
+
+
+def _learning(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
+    from task_manager.domain.learning import payload
+
+    return payload(connection, task_id)
+
+
+def _bandit(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
+    from task_manager.domain.bandit import payload
+
+    return payload(connection, task_id)
+
+
+def _evaluation(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
+    from task_manager.domain.evaluation import payload
+
+    return payload(connection, task_id)
+
+
+def _safety(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
+    from task_manager.domain.safety import payload
 
     return payload(connection, task_id)
 

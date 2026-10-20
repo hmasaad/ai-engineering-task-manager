@@ -668,6 +668,330 @@
 </form>
 {% endif %}
 
+<h2>Workflow schedule</h2>
+{% if task.paths.steps %}
+<ul id="schedule-steps">
+  {% for step in task.paths.steps %}
+  <li>
+    {{ step.name }}: length {{ step.length }}{% if step.follows %}, follows {{ step.follows }}{% endif %}{% if step.latest %}, latest {{ step.latest }}{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No schedule steps yet.</p>
+{% endif %}
+{% if task.paths.critical %}
+<p id="critical-path">Critical path: {{ task.paths.critical | join(', ') }}</p>
+{% endif %}
+{% if task.paths.deadline %}
+<p id="schedule-deadline">Deadline: {{ task.paths.deadline }}</p>
+{% endif %}
+{% if task.status == "In Progress" %}
+<form method="post" action="/tasks/{{ task.id }}/schedule-steps">
+  <label for="schedule-step-name">Step name</label>
+  <input id="schedule-step-name" name="name" type="text">
+  <label for="step-length">Length</label>
+  <input id="step-length" name="length" type="text">
+  <p><button type="submit">Name step</button></p>
+</form>
+{% endif %}
+{% if task.paths.can_link %}
+<form method="post" action="/tasks/{{ task.id }}/schedule-links">
+  <label for="link-step">Step</label>
+  <input id="link-step" name="step" type="text">
+  <label for="link-follows">Follows</label>
+  <input id="link-follows" name="follows" type="text">
+  <p><button type="submit">Add dependency</button></p>
+</form>
+{% endif %}
+{% if task.paths.can_deadline %}
+<form method="post" action="/tasks/{{ task.id }}/schedule-deadlines">
+  <label for="path-deadline">Deadline</label>
+  <input id="path-deadline" name="deadline" type="text">
+  <p><button type="submit">Set deadline</button></p>
+</form>
+{% endif %}
+
+<h2>Optimization</h2>
+{% if task.optimization.activities %}
+<ul id="opt-activities">
+  {% for item in task.optimization.activities %}
+  <li>
+    {{ item.name }}: length {{ item.length }}{% if item.start is not none %}, starts {{ item.start }}{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No activities yet.</p>
+{% endif %}
+{% if task.optimization.constraints %}
+<ul id="opt-constraints">
+  {% for item in task.optimization.constraints %}
+  <li>{{ item.activity }} after {{ item.after }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.optimization.capacity is not none %}
+<p id="opt-capacity-line">Capacity: {{ task.optimization.capacity }}</p>
+{% endif %}
+{% if task.optimization.finish is not none %}
+<p id="opt-finish">Finish day: {{ task.optimization.finish }}</p>
+{% endif %}
+{% if task.status == "In Progress" %}
+<form method="post" action="/tasks/{{ task.id }}/opt-activities">
+  <label for="opt-activity-name">Activity name</label>
+  <input id="opt-activity-name" name="name" type="text">
+  <label for="activity-length">Length</label>
+  <input id="activity-length" name="length" type="text">
+  <p><button type="submit">Name activity</button></p>
+</form>
+{% endif %}
+{% if task.optimization.can_constrain %}
+<form method="post" action="/tasks/{{ task.id }}/opt-constraints">
+  <label for="constraint-activity">Activity</label>
+  <input id="constraint-activity" name="activity" type="text">
+  <label for="constraint-after">After</label>
+  <input id="constraint-after" name="after" type="text">
+  <p><button type="submit">Add constraint</button></p>
+</form>
+{% endif %}
+{% if task.optimization.can_bound %}
+<form method="post" action="/tasks/{{ task.id }}/opt-capacities">
+  <label for="opt-capacity">Capacity</label>
+  <input id="opt-capacity" name="capacity" type="text">
+  <p><button type="submit">Set capacity</button></p>
+</form>
+{% endif %}
+{% if task.optimization.can_optimize %}
+<form method="post" action="/tasks/{{ task.id }}/opt-plans">
+  <p><button type="submit">Optimize schedule</button></p>
+</form>
+{% endif %}
+
+<h2>Learning</h2>
+{% if task.learning.outcomes %}
+<ul id="learn-outcomes">
+  {% for item in task.learning.outcomes %}
+  <li>{{ item.name }}: {{ item.kind }} took {{ item.length }}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No outcomes yet.</p>
+{% endif %}
+{% if task.learning.kinds %}
+<ul id="learned-kinds">
+  {% for item in task.learning.kinds %}
+  <li>{{ item.kind }}: predicted {{ item.predicted }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.learning.forecasts %}
+<ul id="learn-forecasts">
+  {% for item in task.learning.forecasts %}
+  <li>
+    {{ item.name }}: {{ item.kind }}{% if item.start is not none %}, predicted {{ item.predicted }}, starts {{ item.start }}{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.learning.finish is not none %}
+<p id="learn-finish">Finish day: {{ task.learning.finish }}</p>
+{% endif %}
+{% if task.status == "In Progress" %}
+<form method="post" action="/tasks/{{ task.id }}/learn-outcomes">
+  <label for="outcome-name">Outcome name</label>
+  <input id="outcome-name" name="name" type="text">
+  <label for="outcome-kind">Kind</label>
+  <input id="outcome-kind" name="kind" type="text">
+  <label for="outcome-length">Length</label>
+  <input id="outcome-length" name="length" type="text">
+  <p><button type="submit">Record outcome</button></p>
+</form>
+{% endif %}
+{% if task.learning.can_forecast %}
+<form method="post" action="/tasks/{{ task.id }}/learn-forecasts">
+  <label for="forecast-name">Forecast name</label>
+  <input id="forecast-name" name="name" type="text">
+  <label for="forecast-kind">Kind</label>
+  <input id="forecast-kind" name="kind" type="text">
+  <p><button type="submit">Name forecast</button></p>
+</form>
+{% endif %}
+{% if task.learning.can_predict %}
+<form method="post" action="/tasks/{{ task.id }}/learn-predictions">
+  <p><button type="submit">Predict schedule</button></p>
+</form>
+{% endif %}
+
+<h2>Bandit</h2>
+{% if task.bandit.actions %}
+<ul id="bandit-actions">
+  {% for item in task.bandit.actions %}
+  <li>{{ item.name }}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No actions yet.</p>
+{% endif %}
+{% if task.bandit.contexts %}
+<ul id="bandit-contexts">
+  {% for item in task.bandit.contexts %}
+  <li>{{ item.name }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.bandit.trials %}
+<ul id="bandit-trials">
+  {% for item in task.bandit.trials %}
+  <li>{{ item.name }}: {{ item.context }}, {{ item.action }}, reward {{ item.reward }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.bandit["values"] %}
+<ul id="bandit-values">
+  {% for item in task.bandit["values"] %}
+  <li>{{ item.context }}, {{ item.action }}: total {{ item.total }} from {{ item.count }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.bandit.choice %}
+<p id="bandit-choice">Choice for {{ task.bandit.choice.context }}: {{ task.bandit.choice.action }}</p>
+{% endif %}
+{% if task.status == "In Progress" %}
+<form method="post" action="/tasks/{{ task.id }}/bandit-actions">
+  <label for="bandit-action-name">Action name</label>
+  <input id="bandit-action-name" name="name" type="text">
+  <p><button type="submit">Name action</button></p>
+</form>
+<form method="post" action="/tasks/{{ task.id }}/bandit-contexts">
+  <label for="bandit-context-name">Context name</label>
+  <input id="bandit-context-name" name="name" type="text">
+  <p><button type="submit">Name context</button></p>
+</form>
+{% endif %}
+{% if task.bandit.can_try %}
+<form method="post" action="/tasks/{{ task.id }}/bandit-trials">
+  <label for="trial-name">Trial name</label>
+  <input id="trial-name" name="name" type="text">
+  <label for="trial-context">Context</label>
+  <input id="trial-context" name="context" type="text">
+  <label for="trial-action">Action</label>
+  <input id="trial-action" name="action" type="text">
+  <label for="trial-reward">Reward</label>
+  <input id="trial-reward" name="reward" type="text">
+  <p><button type="submit">Record trial</button></p>
+</form>
+{% endif %}
+{% if task.bandit.can_choose %}
+<form method="post" action="/tasks/{{ task.id }}/bandit-choices">
+  <label for="choice-context">Context</label>
+  <input id="choice-context" name="context" type="text">
+  <p><button type="submit">Choose action</button></p>
+</form>
+{% endif %}
+
+<h2>Policy</h2>
+{% if task.evaluation.logs %}
+<ul id="policy-logs">
+  {% for item in task.evaluation.logs %}
+  <li>{{ item.name }}: {{ item.state }}, {{ item.action }}, reward {{ item.reward }}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No logged steps yet.</p>
+{% endif %}
+{% if task.evaluation.rules %}
+<ul id="policy-rules">
+  {% for item in task.evaluation.rules %}
+  <li>{{ item.state }}: {{ item.action }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.evaluation.score %}
+<p id="policy-score">Score: {{ task.evaluation.score.total }} from {{ task.evaluation.score.count }}</p>
+{% endif %}
+{% if task.status == "In Progress" %}
+<form method="post" action="/tasks/{{ task.id }}/policy-logs">
+  <label for="log-name">Step name</label>
+  <input id="log-name" name="name" type="text">
+  <label for="log-state">State</label>
+  <input id="log-state" name="state" type="text">
+  <label for="log-action">Action</label>
+  <input id="log-action" name="action" type="text">
+  <label for="log-reward">Reward</label>
+  <input id="log-reward" name="reward" type="text">
+  <p><button type="submit">Record logged step</button></p>
+</form>
+{% endif %}
+{% if task.evaluation.can_rule %}
+<form method="post" action="/tasks/{{ task.id }}/policy-rules">
+  <label for="rule-state">State</label>
+  <input id="rule-state" name="state" type="text">
+  <label for="rule-action">Action</label>
+  <input id="rule-action" name="action" type="text">
+  <p><button type="submit">Name policy rule</button></p>
+</form>
+{% endif %}
+{% if task.evaluation.can_evaluate %}
+<form method="post" action="/tasks/{{ task.id }}/policy-scores">
+  <p><button type="submit">Evaluate policy</button></p>
+</form>
+{% endif %}
+
+<h2>Safety</h2>
+{% if task.safety.actions %}
+<ul id="safe-actions">
+  {% for item in task.safety.actions %}
+  <li>{{ item.name }}: risk {{ item.risk }}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>No actions yet.</p>
+{% endif %}
+{% if task.safety.probes %}
+<ul id="safe-probes">
+  {% for item in task.safety.probes %}
+  <li>{{ item.name }}: {{ item.state }}, {{ item.action }}, reward {{ item.reward }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.safety.effect %}
+<p id="safe-effect">Effect of {{ task.safety.effect.action }} instead of {{ task.safety.effect.instead }} in {{ task.safety.effect.state }}: {{ task.safety.effect.effect }}</p>
+{% endif %}
+{% if task.safety.can_name %}
+<form method="post" action="/tasks/{{ task.id }}/safe-actions">
+  <label for="safe-action-name">Action</label>
+  <input id="safe-action-name" name="name" type="text">
+  <label for="action-risk">Risk</label>
+  <input id="action-risk" name="risk" type="text">
+  <p><button type="submit">Name action</button></p>
+</form>
+{% endif %}
+{% if task.safety.can_probe %}
+<form method="post" action="/tasks/{{ task.id }}/safe-probes">
+  <label for="probe-name">Probe</label>
+  <input id="probe-name" name="name" type="text">
+  <label for="probe-state">State</label>
+  <input id="probe-state" name="state" type="text">
+  <label for="probe-action">Action</label>
+  <input id="probe-action" name="action" type="text">
+  <label for="probe-reward">Reward</label>
+  <input id="probe-reward" name="reward" type="text">
+  <p><button type="submit">Record probe</button></p>
+</form>
+{% endif %}
+{% if task.safety.can_compare %}
+<form method="post" action="/tasks/{{ task.id }}/safe-effects">
+  <label for="effect-state">State</label>
+  <input id="effect-state" name="state" type="text">
+  <label for="effect-action">Action</label>
+  <input id="effect-action" name="action" type="text">
+  <label for="effect-instead">Replaced action</label>
+  <input id="effect-instead" name="instead" type="text">
+  <p><button type="submit">Compare actions</button></p>
+</form>
+{% endif %}
+
 <h2>Executions</h2>
 {% if task.executions %}
 <ul id="command-executions">
