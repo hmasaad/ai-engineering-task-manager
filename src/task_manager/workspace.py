@@ -16,8 +16,11 @@ from task_manager.domain import (
     implementation,
     instruction,
     model_file,
+    priority,
     pull_request,
     requirement,
+    schedule,
+    slo,
     status,
     subtasks,
     test_run,
@@ -250,6 +253,28 @@ class Workspace:
 
     def scale_workers(self, task_id: int, name: str | None):
         return self._run(lambda conn, at: workers.scale_workers(conn, task_id, name, at))
+
+    def admit_tenant(self, task_id: int, name: str | None):
+        return self._run(lambda conn, at: schedule.admit_tenant(conn, task_id, name, at))
+
+    def grant_turn(self, task_id: int, name: str | None):
+        return self._run(lambda conn, at: schedule.grant_turn(conn, task_id, name, at))
+
+    def rank_work(self, task_id: int, name: str | None, rank: str | None):
+        return self._run(
+            lambda conn, at: priority.rank_work(conn, task_id, name, rank, at)
+        )
+
+    def serve_next(self, task_id: int, name: str | None):
+        return self._run(lambda conn, at: priority.serve_next(conn, task_id, name, at))
+
+    def set_objective(self, task_id: int, name: str | None, deadline: str | None):
+        return self._run(
+            lambda conn, at: slo.set_objective(conn, task_id, name, deadline, at)
+        )
+
+    def serve_objective(self, task_id: int, name: str | None):
+        return self._run(lambda conn, at: slo.serve_objective(conn, task_id, name, at))
 
     def reject_outbox(self, task_id: int, name: str | None, reason: str | None):
         return self._run(lambda conn, at: workflow.reject(conn, task_id, name, reason, at))

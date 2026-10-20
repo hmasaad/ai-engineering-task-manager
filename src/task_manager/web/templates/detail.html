@@ -568,6 +568,106 @@
 </form>
 {% endif %}
 
+<h2>Schedule</h2>
+{% if task.schedule.tenants %}
+<ul id="tenants">
+  {% for tenant in task.schedule.tenants %}
+  <li>{{ tenant.name }}: {{ tenant.used }} of {{ tenant.quota }}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No tenants yet.</p>
+{% endif %}
+{% if task.schedule.turns %}
+<ul id="turns">
+  {% for item in task.schedule.turns %}
+  <li>{{ item.name }} granted to {{ item.tenant }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.status == "In Progress" %}
+<form method="post" action="/tasks/{{ task.id }}/tenants">
+  <label for="tenant-name">Tenant name</label>
+  <input id="tenant-name" name="name" type="text">
+  <p><button type="submit">Admit tenant</button></p>
+</form>
+{% endif %}
+{% if task.schedule.can_grant %}
+<form method="post" action="/tasks/{{ task.id }}/turns">
+  <label for="turn-name">Turn name</label>
+  <input id="turn-name" name="name" type="text">
+  <p><button type="submit">Grant turn</button></p>
+</form>
+{% endif %}
+
+<h2>Priority</h2>
+{% if task.priority.waiting %}
+<ul id="priority-work">
+  {% for item in task.priority.waiting %}
+  <li>{{ item.name }}: rank {{ item.rank }}, age {{ item.age }}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No ranked work yet.</p>
+{% endif %}
+{% if task.priority.serves %}
+<ul id="priority-serves">
+  {% for item in task.priority.serves %}
+  <li>{{ item.name }} served {{ item.work }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.status == "In Progress" %}
+<form method="post" action="/tasks/{{ task.id }}/priorities">
+  <label for="priority-name">Work name</label>
+  <input id="priority-name" name="name" type="text">
+  <label for="work-rank">Rank</label>
+  <input id="work-rank" name="rank" type="text">
+  <p><button type="submit">Rank work</button></p>
+</form>
+{% endif %}
+{% if task.priority.can_serve %}
+<form method="post" action="/tasks/{{ task.id }}/serves">
+  <label for="serve-name">Serve name</label>
+  <input id="serve-name" name="name" type="text">
+  <p><button type="submit">Serve next</button></p>
+</form>
+{% endif %}
+
+<h2>Objectives</h2>
+{% if task.slo.waiting %}
+<ul id="objectives">
+  {% for item in task.slo.waiting %}
+  <li>{{ item.name }}: due {{ item.deadline }}</li>
+  {% endfor %}
+</ul>
+{% elif not task.slo.services %}
+<p class="muted">No objectives yet.</p>
+{% endif %}
+{% if task.slo.services %}
+<ul id="objective-services">
+  {% for item in task.slo.services %}
+  <li>{{ item.name }} {{ item.result }} {{ item.objective }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.status == "In Progress" %}
+<form method="post" action="/tasks/{{ task.id }}/objectives">
+  <label for="objective-name">Objective name</label>
+  <input id="objective-name" name="name" type="text">
+  <label for="objective-deadline">Deadline</label>
+  <input id="objective-deadline" name="deadline" type="text">
+  <p><button type="submit">Set objective</button></p>
+</form>
+{% endif %}
+{% if task.slo.can_serve %}
+<form method="post" action="/tasks/{{ task.id }}/objective-services">
+  <label for="service-name">Service name</label>
+  <input id="service-name" name="name" type="text">
+  <p><button type="submit">Serve objective</button></p>
+</form>
+{% endif %}
+
 <h2>Executions</h2>
 {% if task.executions %}
 <ul id="command-executions">

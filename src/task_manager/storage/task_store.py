@@ -271,6 +271,9 @@ def task_detail(connection: sqlite3.Connection, task_id: int) -> dict[str, objec
         "blocked_by": _blocked_by(connection, task_id),
         "workflow": _workflow(connection, task_id),
         "work": _work(connection, task_id),
+        "schedule": _schedule(connection, task_id),
+        "priority": _priority(connection, task_id),
+        "slo": _slo(connection, task_id),
     }
 
 
@@ -301,6 +304,24 @@ def _workflow(connection: sqlite3.Connection, task_id: int) -> dict[str, object]
 
 def _work(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
     from task_manager.domain.workers import payload
+
+    return payload(connection, task_id)
+
+
+def _schedule(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
+    from task_manager.domain.schedule import payload
+
+    return payload(connection, task_id)
+
+
+def _priority(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
+    from task_manager.domain.priority import payload
+
+    return payload(connection, task_id)
+
+
+def _slo(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
+    from task_manager.domain.slo import payload
 
     return payload(connection, task_id)
 

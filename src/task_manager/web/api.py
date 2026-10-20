@@ -90,6 +90,38 @@ class ScaleIn(BaseModel):
     name: str = ""
 
 
+class TenantIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+
+
+class TurnIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+
+
+class PriorityIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+    rank: str = ""
+
+
+class ServeIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+
+
+class ObjectiveIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+    deadline: str = ""
+
+
+class ObjectiveServiceIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+
+
 class RejectionIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
     name: str = ""
@@ -534,6 +566,38 @@ def plan_capacity(request: Request, task_id: int, body: PlanIn):
 @router.post("/tasks/{task_id}/scales")
 def scale_workers(request: Request, task_id: int, body: ScaleIn):
     return _respond(request.app.state.workspace.scale_workers(task_id, body.name))
+
+
+@router.post("/tasks/{task_id}/tenants")
+def admit_tenant(request: Request, task_id: int, body: TenantIn):
+    return _respond(request.app.state.workspace.admit_tenant(task_id, body.name))
+
+
+@router.post("/tasks/{task_id}/turns")
+def grant_turn(request: Request, task_id: int, body: TurnIn):
+    return _respond(request.app.state.workspace.grant_turn(task_id, body.name))
+
+
+@router.post("/tasks/{task_id}/priorities")
+def rank_work(request: Request, task_id: int, body: PriorityIn):
+    return _respond(request.app.state.workspace.rank_work(task_id, body.name, body.rank))
+
+
+@router.post("/tasks/{task_id}/serves")
+def serve_next(request: Request, task_id: int, body: ServeIn):
+    return _respond(request.app.state.workspace.serve_next(task_id, body.name))
+
+
+@router.post("/tasks/{task_id}/objectives")
+def set_objective(request: Request, task_id: int, body: ObjectiveIn):
+    return _respond(
+        request.app.state.workspace.set_objective(task_id, body.name, body.deadline)
+    )
+
+
+@router.post("/tasks/{task_id}/objective-services")
+def serve_objective(request: Request, task_id: int, body: ObjectiveServiceIn):
+    return _respond(request.app.state.workspace.serve_objective(task_id, body.name))
 
 
 @router.post("/tasks/{task_id}/workflow/outbox/reject")

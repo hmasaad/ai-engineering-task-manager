@@ -332,6 +332,42 @@ def scale_workers(request: Request, task_id: int, name: str = Form("")):
     return _after(request, task_id, _workspace(request).scale_workers(task_id, name))
 
 
+@router.post("/tasks/{task_id}/tenants")
+def admit_tenant(request: Request, task_id: int, name: str = Form("")):
+    return _after(request, task_id, _workspace(request).admit_tenant(task_id, name))
+
+
+@router.post("/tasks/{task_id}/turns")
+def grant_turn(request: Request, task_id: int, name: str = Form("")):
+    return _after(request, task_id, _workspace(request).grant_turn(task_id, name))
+
+
+@router.post("/tasks/{task_id}/priorities")
+def rank_work(
+    request: Request, task_id: int, name: str = Form(""), rank: str = Form("")
+):
+    return _after(request, task_id, _workspace(request).rank_work(task_id, name, rank))
+
+
+@router.post("/tasks/{task_id}/serves")
+def serve_next(request: Request, task_id: int, name: str = Form("")):
+    return _after(request, task_id, _workspace(request).serve_next(task_id, name))
+
+
+@router.post("/tasks/{task_id}/objectives")
+def set_objective(
+    request: Request, task_id: int, name: str = Form(""), deadline: str = Form("")
+):
+    return _after(
+        request, task_id, _workspace(request).set_objective(task_id, name, deadline)
+    )
+
+
+@router.post("/tasks/{task_id}/objective-services")
+def serve_objective(request: Request, task_id: int, name: str = Form("")):
+    return _after(request, task_id, _workspace(request).serve_objective(task_id, name))
+
+
 @router.post("/tasks/{task_id}/workflow/checkpoints")
 def take_checkpoint(request: Request, task_id: int, name: str = Form("")):
     return _after(request, task_id, _workspace(request).take_checkpoint(task_id, name))

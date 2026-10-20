@@ -580,3 +580,59 @@ CREATE TABLE IF NOT EXISTS work_release (
     scale_id INTEGER NOT NULL REFERENCES work_scale(id),
     recorded_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS schedule_tenant (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    quota INTEGER NOT NULL CHECK (quota > 0),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS schedule_turn (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    tenant_id INTEGER NOT NULL REFERENCES schedule_tenant(id),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS priority_work (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    rank INTEGER NOT NULL CHECK (rank IN (1, 2, 3)),
+    age INTEGER NOT NULL CHECK (age >= 0),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS priority_serve (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    work_id INTEGER NOT NULL REFERENCES priority_work(id),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS slo_objective (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    deadline TEXT NOT NULL CHECK (length(trim(deadline)) > 0),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS slo_service (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    objective_id INTEGER NOT NULL REFERENCES slo_objective(id),
+    result TEXT NOT NULL CHECK (result IN ('met', 'missed')),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
