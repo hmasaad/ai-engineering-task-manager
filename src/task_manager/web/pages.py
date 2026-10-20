@@ -300,6 +300,38 @@ def run_file_read(request: Request, task_id: int, name: str = Form("")):
     return _after(request, task_id, _workspace(request).run_file_read(task_id, name))
 
 
+@router.post("/tasks/{task_id}/workers")
+def add_worker(request: Request, task_id: int, name: str = Form("")):
+    return _after(request, task_id, _workspace(request).add_worker(task_id, name))
+
+
+@router.post("/tasks/{task_id}/jobs")
+def place_job(request: Request, task_id: int, name: str = Form("")):
+    return _after(request, task_id, _workspace(request).place_job(task_id, name))
+
+
+@router.post("/tasks/{task_id}/steals")
+def steal_work(
+    request: Request, task_id: int, name: str = Form(""), worker: str = Form("")
+):
+    return _after(request, task_id, _workspace(request).steal_work(task_id, name, worker))
+
+
+@router.post("/tasks/{task_id}/queue")
+def queue_work(request: Request, task_id: int, name: str = Form("")):
+    return _after(request, task_id, _workspace(request).queue_work(task_id, name))
+
+
+@router.post("/tasks/{task_id}/plans")
+def plan_capacity(request: Request, task_id: int, name: str = Form("")):
+    return _after(request, task_id, _workspace(request).plan_capacity(task_id, name))
+
+
+@router.post("/tasks/{task_id}/scales")
+def scale_workers(request: Request, task_id: int, name: str = Form("")):
+    return _after(request, task_id, _workspace(request).scale_workers(task_id, name))
+
+
 @router.post("/tasks/{task_id}/workflow/checkpoints")
 def take_checkpoint(request: Request, task_id: int, name: str = Form("")):
     return _after(request, task_id, _workspace(request).take_checkpoint(task_id, name))

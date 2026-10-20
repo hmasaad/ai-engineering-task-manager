@@ -270,6 +270,7 @@ def task_detail(connection: sqlite3.Connection, task_id: int) -> dict[str, objec
         "prerequisites": _prerequisites(connection, task_id),
         "blocked_by": _blocked_by(connection, task_id),
         "workflow": _workflow(connection, task_id),
+        "work": _work(connection, task_id),
     }
 
 
@@ -294,6 +295,12 @@ def _blocked_by(connection: sqlite3.Connection, task_id: int) -> str | None:
 
 def _workflow(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
     from task_manager.domain.workflow import payload
+
+    return payload(connection, task_id)
+
+
+def _work(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
+    from task_manager.domain.workers import payload
 
     return payload(connection, task_id)
 

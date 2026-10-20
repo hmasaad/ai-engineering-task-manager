@@ -59,6 +59,37 @@ class RunIn(BaseModel):
     name: str = ""
 
 
+class WorkerIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+
+
+class JobIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+
+
+class StealIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+    worker: str = ""
+
+
+class QueueIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+
+
+class PlanIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+
+
+class ScaleIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+
+
 class RejectionIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
     name: str = ""
@@ -473,6 +504,36 @@ def replay_dead_letter(request: Request, task_id: int, body: ReplayIn):
 @router.post("/tasks/{task_id}/workflow/runs")
 def run_file_read(request: Request, task_id: int, body: RunIn):
     return _respond(request.app.state.workspace.run_file_read(task_id, body.name))
+
+
+@router.post("/tasks/{task_id}/workers")
+def add_worker(request: Request, task_id: int, body: WorkerIn):
+    return _respond(request.app.state.workspace.add_worker(task_id, body.name))
+
+
+@router.post("/tasks/{task_id}/jobs")
+def place_job(request: Request, task_id: int, body: JobIn):
+    return _respond(request.app.state.workspace.place_job(task_id, body.name))
+
+
+@router.post("/tasks/{task_id}/steals")
+def steal_work(request: Request, task_id: int, body: StealIn):
+    return _respond(request.app.state.workspace.steal_work(task_id, body.name, body.worker))
+
+
+@router.post("/tasks/{task_id}/queue")
+def queue_work(request: Request, task_id: int, body: QueueIn):
+    return _respond(request.app.state.workspace.queue_work(task_id, body.name))
+
+
+@router.post("/tasks/{task_id}/plans")
+def plan_capacity(request: Request, task_id: int, body: PlanIn):
+    return _respond(request.app.state.workspace.plan_capacity(task_id, body.name))
+
+
+@router.post("/tasks/{task_id}/scales")
+def scale_workers(request: Request, task_id: int, body: ScaleIn):
+    return _respond(request.app.state.workspace.scale_workers(task_id, body.name))
 
 
 @router.post("/tasks/{task_id}/workflow/outbox/reject")

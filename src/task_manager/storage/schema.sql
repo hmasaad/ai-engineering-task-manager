@@ -512,3 +512,71 @@ CREATE TABLE IF NOT EXISTS command_execution (
     recorded_at TEXT NOT NULL,
     UNIQUE (task_id, name)
 );
+
+CREATE TABLE IF NOT EXISTS work_worker (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS work_job (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    worker_id INTEGER NOT NULL REFERENCES work_worker(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS work_steal (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    job_id INTEGER NOT NULL REFERENCES work_job(id),
+    from_worker_id INTEGER NOT NULL REFERENCES work_worker(id),
+    to_worker_id INTEGER NOT NULL REFERENCES work_worker(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS work_queue (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    job_id INTEGER REFERENCES work_job(id),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS work_plan (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    waiting INTEGER NOT NULL CHECK (waiting >= 0),
+    held INTEGER NOT NULL CHECK (held >= 0),
+    active INTEGER NOT NULL CHECK (active >= 0),
+    needed INTEGER NOT NULL CHECK (needed >= 0),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS work_scale (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    direction TEXT NOT NULL CHECK (direction IN ('fill', 'up', 'down')),
+    worker_id INTEGER NOT NULL REFERENCES work_worker(id),
+    job_id INTEGER REFERENCES work_job(id),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS work_release (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    worker_id INTEGER NOT NULL UNIQUE REFERENCES work_worker(id),
+    scale_id INTEGER NOT NULL REFERENCES work_scale(id),
+    recorded_at TEXT NOT NULL
+);

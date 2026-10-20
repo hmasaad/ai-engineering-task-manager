@@ -23,6 +23,7 @@ from task_manager.domain import (
     test_run,
     verification,
     workflow,
+    workers,
 )
 from task_manager.domain.results import Refusal
 from task_manager.model import HttpModel
@@ -229,6 +230,26 @@ class Workspace:
         return self._run(
             lambda conn, at: workflow.run_file_read(conn, task_id, name, at, root)
         )
+
+    def add_worker(self, task_id: int, name: str | None):
+        return self._run(lambda conn, at: workers.add_worker(conn, task_id, name, at))
+
+    def place_job(self, task_id: int, name: str | None):
+        return self._run(lambda conn, at: workers.place_job(conn, task_id, name, at))
+
+    def steal_work(self, task_id: int, name: str | None, worker: str | None):
+        return self._run(
+            lambda conn, at: workers.steal_work(conn, task_id, name, worker, at)
+        )
+
+    def queue_work(self, task_id: int, name: str | None):
+        return self._run(lambda conn, at: workers.queue_work(conn, task_id, name, at))
+
+    def plan_capacity(self, task_id: int, name: str | None):
+        return self._run(lambda conn, at: workers.plan_capacity(conn, task_id, name, at))
+
+    def scale_workers(self, task_id: int, name: str | None):
+        return self._run(lambda conn, at: workers.scale_workers(conn, task_id, name, at))
 
     def reject_outbox(self, task_id: int, name: str | None, reason: str | None):
         return self._run(lambda conn, at: workflow.reject(conn, task_id, name, reason, at))

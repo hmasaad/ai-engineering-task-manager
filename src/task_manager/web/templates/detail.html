@@ -477,6 +477,97 @@
 </form>
 {% endif %}
 
+<h2>Workers</h2>
+{% if task.work.workers %}
+<ul id="workers">
+  {% for worker in task.work.workers %}
+  <li>{{ worker.name }}: {% if worker.jobs %}{{ worker.jobs | join(', ') }}{% else %}idle{% endif %}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No workers yet.</p>
+{% endif %}
+{% if task.work.steals %}
+<h3>Work stolen</h3>
+<ul id="steals">
+  {% for item in task.work.steals %}
+  <li>{{ item.name }} moved {{ item.job }} from {{ item.from_worker }} to {{ item.to_worker }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.status == "In Progress" %}
+<form method="post" action="/tasks/{{ task.id }}/workers">
+  <label for="worker-name">Worker name</label>
+  <input id="worker-name" name="name" type="text">
+  <p><button type="submit">Add worker</button></p>
+</form>
+{% endif %}
+{% if task.work.can_place %}
+<form method="post" action="/tasks/{{ task.id }}/jobs">
+  <label for="job-name">Job name</label>
+  <input id="job-name" name="name" type="text">
+  <p><button type="submit">Place job</button></p>
+</form>
+{% endif %}
+{% if task.work.can_steal %}
+<form method="post" action="/tasks/{{ task.id }}/steals">
+  <label for="steal-name">Steal name</label>
+  <input id="steal-name" name="name" type="text">
+  <label for="idle-worker">Idle worker</label>
+  <input id="idle-worker" name="worker" type="text">
+  <p><button type="submit">Steal work</button></p>
+</form>
+{% endif %}
+<p id="capacity">Workers needed: {{ task.work.needed }}. Active workers: {{ task.work.active }}.</p>
+{% if task.work.queue %}
+<h3>Waiting work</h3>
+<ul id="work-queue">
+  {% for name in task.work.queue %}
+  <li>{{ name }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.work.plans %}
+<ul id="capacity-plans">
+  {% for item in task.work.plans %}
+  <li>{{ item.name }} — waiting {{ item.waiting }}, held {{ item.held }}, needed {{ item.needed }}, active {{ item.active }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.work.scales %}
+<ul id="scales">
+  {% for item in task.work.scales %}
+  <li>{% if item.direction == 'up' %}{{ item.name }} scaled up with {{ item.job }}{% elif item.direction == 'fill' %}{{ item.name }} assigned {{ item.job }} to {{ item.worker }}{% else %}{{ item.name }} released {{ item.worker }}{% endif %}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.work.released %}
+<ul id="released-workers">
+  {% for name in task.work.released %}
+  <li>{{ name }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.status == "In Progress" %}
+<form method="post" action="/tasks/{{ task.id }}/queue">
+  <label for="queue-name">Work name</label>
+  <input id="queue-name" name="name" type="text">
+  <p><button type="submit">Queue work</button></p>
+</form>
+<form method="post" action="/tasks/{{ task.id }}/plans">
+  <label for="plan-name">Plan name</label>
+  <input id="plan-name" name="name" type="text">
+  <p><button type="submit">Plan capacity</button></p>
+</form>
+{% endif %}
+{% if task.work.can_scale %}
+<form method="post" action="/tasks/{{ task.id }}/scales">
+  <label for="scale-name">Scale name</label>
+  <input id="scale-name" name="name" type="text">
+  <p><button type="submit">Scale workers</button></p>
+</form>
+{% endif %}
+
 <h2>Executions</h2>
 {% if task.executions %}
 <ul id="command-executions">
