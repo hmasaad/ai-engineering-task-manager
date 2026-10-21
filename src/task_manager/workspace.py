@@ -6,6 +6,7 @@ from pathlib import Path
 from task_manager.clock import ScriptedClock, SystemClock, format_time
 from task_manager.domain import (
     bandit,
+    bayes,
     branch,
     capture,
     commit_file,
@@ -13,11 +14,13 @@ from task_manager.domain import (
     delete_file,
     dependency,
     evaluation,
+    exploration,
     file_read,
     folder,
     implementation,
     instruction,
     learning,
+    linear_bandit,
     model_file,
     optimization,
     paths,
@@ -391,6 +394,79 @@ class Workspace:
                 conn, task_id, state, action, instead, at
             )
         )
+
+    def name_explore_arm(self, task_id: int, name: str):
+        return self._run(
+            lambda conn, at: exploration.name_arm(conn, task_id, name, at)
+        )
+
+    def name_explore_context(self, task_id: int, name: str):
+        return self._run(
+            lambda conn, at: exploration.name_context(conn, task_id, name, at)
+        )
+
+    def record_pull(
+        self, task_id: int, name: str, context: str, arm: str, reward: str
+    ):
+        return self._run(
+            lambda conn, at: exploration.record_pull(
+                conn, task_id, name, context, arm, reward, at
+            )
+        )
+
+    def draw_arm(self, task_id: int, context: str):
+        return self._run(
+            lambda conn, at: exploration.draw_arm(conn, task_id, context, at)
+        )
+
+    def name_model_arm(self, task_id: int, name: str):
+        return self._run(
+            lambda conn, at: linear_bandit.name_arm(conn, task_id, name, at)
+        )
+
+    def name_model_context(self, task_id: int, name: str, first: str, second: str):
+        return self._run(
+            lambda conn, at: linear_bandit.name_context(
+                conn, task_id, name, first, second, at
+            )
+        )
+
+    def record_model_pull(
+        self, task_id: int, name: str, context: str, arm: str, reward: str
+    ):
+        return self._run(
+            lambda conn, at: linear_bandit.record_pull(
+                conn, task_id, name, context, arm, reward, at
+            )
+        )
+
+    def choose_model_arm(self, task_id: int, context: str, model: str):
+        return self._run(
+            lambda conn, at: linear_bandit.choose(conn, task_id, context, model, at)
+        )
+
+    def name_search_design(self, task_id: int, name: str, first: str, second: str):
+        return self._run(
+            lambda conn, at: bayes.name_design(conn, task_id, name, first, second, at)
+        )
+
+    def record_observation(
+        self,
+        task_id: int,
+        name: str,
+        design: str,
+        first: str,
+        second: str,
+        constraint: str,
+    ):
+        return self._run(
+            lambda conn, at: bayes.record_observation(
+                conn, task_id, name, design, first, second, constraint, at
+            )
+        )
+
+    def recommend_design(self, task_id: int):
+        return self._run(lambda conn, at: bayes.recommend(conn, task_id, at))
 
     def reject_outbox(self, task_id: int, name: str | None, reason: str | None):
         return self._run(lambda conn, at: workflow.reject(conn, task_id, name, reason, at))

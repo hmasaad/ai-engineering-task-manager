@@ -222,6 +222,66 @@ class SafeEffectIn(BaseModel):
     instead: str = ""
 
 
+class ExploreNameIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+
+
+class ExplorePullIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+    context: str = ""
+    arm: str = ""
+    reward: str = ""
+
+
+class ExploreDrawIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    context: str = ""
+
+
+class ModelNameIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+
+
+class ModelContextIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+    first: str = ""
+    second: str = ""
+
+
+class ModelPullIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+    context: str = ""
+    arm: str = ""
+    reward: str = ""
+
+
+class ModelChoiceIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    context: str = ""
+    model: str = ""
+
+
+class SearchDesignIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+    first: str = ""
+    second: str = ""
+
+
+class SearchObservationIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+    design: str = ""
+    first: str = ""
+    second: str = ""
+    constraint: str = ""
+
+
 class RejectionIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
     name: str = ""
@@ -834,6 +894,85 @@ def compare_actions(request: Request, task_id: int, body: SafeEffectIn):
             task_id, body.state, body.action, body.instead
         )
     )
+
+
+@router.post("/tasks/{task_id}/thompson-arms")
+def name_explore_arm(request: Request, task_id: int, body: ExploreNameIn):
+    return _respond(request.app.state.workspace.name_explore_arm(task_id, body.name))
+
+
+@router.post("/tasks/{task_id}/thompson-contexts")
+def name_explore_context(request: Request, task_id: int, body: ExploreNameIn):
+    return _respond(
+        request.app.state.workspace.name_explore_context(task_id, body.name)
+    )
+
+
+@router.post("/tasks/{task_id}/thompson-pulls")
+def record_pull(request: Request, task_id: int, body: ExplorePullIn):
+    return _respond(
+        request.app.state.workspace.record_pull(
+            task_id, body.name, body.context, body.arm, body.reward
+        )
+    )
+
+
+@router.post("/tasks/{task_id}/thompson-draws")
+def draw_arm(request: Request, task_id: int, body: ExploreDrawIn):
+    return _respond(request.app.state.workspace.draw_arm(task_id, body.context))
+
+
+@router.post("/tasks/{task_id}/model-arms")
+def name_model_arm(request: Request, task_id: int, body: ModelNameIn):
+    return _respond(request.app.state.workspace.name_model_arm(task_id, body.name))
+
+
+@router.post("/tasks/{task_id}/model-contexts")
+def name_model_context(request: Request, task_id: int, body: ModelContextIn):
+    return _respond(
+        request.app.state.workspace.name_model_context(
+            task_id, body.name, body.first, body.second
+        )
+    )
+
+
+@router.post("/tasks/{task_id}/model-pulls")
+def record_model_pull(request: Request, task_id: int, body: ModelPullIn):
+    return _respond(
+        request.app.state.workspace.record_model_pull(
+            task_id, body.name, body.context, body.arm, body.reward
+        )
+    )
+
+
+@router.post("/tasks/{task_id}/model-choices")
+def choose_model_arm(request: Request, task_id: int, body: ModelChoiceIn):
+    return _respond(
+        request.app.state.workspace.choose_model_arm(task_id, body.context, body.model)
+    )
+
+
+@router.post("/tasks/{task_id}/search-designs")
+def name_search_design(request: Request, task_id: int, body: SearchDesignIn):
+    return _respond(
+        request.app.state.workspace.name_search_design(
+            task_id, body.name, body.first, body.second
+        )
+    )
+
+
+@router.post("/tasks/{task_id}/search-observations")
+def record_observation(request: Request, task_id: int, body: SearchObservationIn):
+    return _respond(
+        request.app.state.workspace.record_observation(
+            task_id, body.name, body.design, body.first, body.second, body.constraint
+        )
+    )
+
+
+@router.post("/tasks/{task_id}/search-recommendations")
+def recommend_design(request: Request, task_id: int):
+    return _respond(request.app.state.workspace.recommend_design(task_id))
 
 
 @router.post("/tasks/{task_id}/workflow/outbox/reject")

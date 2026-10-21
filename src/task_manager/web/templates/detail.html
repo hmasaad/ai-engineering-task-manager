@@ -992,6 +992,195 @@
 </form>
 {% endif %}
 
+<h2>Exploration</h2>
+{% if task.exploration.arms %}
+<ul id="explore-arms">
+  {% for item in task.exploration.arms %}
+  <li>{{ item.name }}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>No arms yet.</p>
+{% endif %}
+{% if task.exploration.contexts %}
+<ul id="explore-contexts">
+  {% for item in task.exploration.contexts %}
+  <li>{{ item.name }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.exploration.pulls %}
+<ul id="explore-pulls">
+  {% for item in task.exploration.pulls %}
+  <li>{{ item.name }}: {{ item.context }}, {{ item.arm }}, reward {{ item.reward }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.exploration.draw %}
+<p id="explore-draw">Draw in {{ task.exploration.draw.context }}: {{ task.exploration.draw.arm }}, {{ task.exploration.draw.sample }} sample</p>
+{% endif %}
+{% if task.exploration.can_name %}
+<form method="post" action="/tasks/{{ task.id }}/thompson-arms">
+  <label for="thompson-arm-name">Arm</label>
+  <input id="thompson-arm-name" name="name" type="text">
+  <p><button type="submit">Name arm</button></p>
+</form>
+{% endif %}
+{% if task.exploration.can_context %}
+<form method="post" action="/tasks/{{ task.id }}/thompson-contexts">
+  <label for="thompson-context-name">Context</label>
+  <input id="thompson-context-name" name="name" type="text">
+  <p><button type="submit">Name context</button></p>
+</form>
+{% endif %}
+{% if task.exploration.can_pull %}
+<form method="post" action="/tasks/{{ task.id }}/thompson-pulls">
+  <label for="pull-name">Pull</label>
+  <input id="pull-name" name="name" type="text">
+  <label for="pull-context">Context</label>
+  <input id="pull-context" name="context" type="text">
+  <label for="pull-arm">Arm</label>
+  <input id="pull-arm" name="arm" type="text">
+  <label for="pull-reward">Reward</label>
+  <input id="pull-reward" name="reward" type="text">
+  <p><button type="submit">Record pull</button></p>
+</form>
+{% endif %}
+{% if task.exploration.can_draw %}
+<form method="post" action="/tasks/{{ task.id }}/thompson-draws">
+  <label for="draw-context">Context</label>
+  <input id="draw-context" name="context" type="text">
+  <p><button type="submit">Draw arm</button></p>
+</form>
+{% endif %}
+
+<h2>Models</h2>
+{% if task.models.arms %}
+<ul id="model-arms">
+  {% for item in task.models.arms %}
+  <li>{{ item.name }}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>No model arms yet.</p>
+{% endif %}
+{% if task.models.contexts %}
+<ul id="model-contexts">
+  {% for item in task.models.contexts %}
+  <li>{{ item.name }}: {{ item.first }}, {{ item.second }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.models.pulls %}
+<ul id="model-pulls">
+  {% for item in task.models.pulls %}
+  <li>{{ item.name }}: {{ item.context }}, {{ item.arm }}, reward {{ item.reward }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.models.choice %}
+<p id="model-choice">{% if task.models.choice.model == "linear" %}Linear{% else %}Neural{% endif %} choice in {{ task.models.choice.context }}: {{ task.models.choice.arm }}</p>
+{% endif %}
+{% if task.models.can_name %}
+<form method="post" action="/tasks/{{ task.id }}/model-arms">
+  <label for="model-arm-name">Arm</label>
+  <input id="model-arm-name" name="name" type="text">
+  <p><button type="submit">Name model arm</button></p>
+</form>
+{% endif %}
+{% if task.models.can_context %}
+<form method="post" action="/tasks/{{ task.id }}/model-contexts">
+  <label for="model-context-name">Context</label>
+  <input id="model-context-name" name="name" type="text">
+  <label for="model-first">First mark</label>
+  <input id="model-first" name="first" type="text">
+  <label for="model-second">Second mark</label>
+  <input id="model-second" name="second" type="text">
+  <p><button type="submit">Name model context</button></p>
+</form>
+{% endif %}
+{% if task.models.can_pull %}
+<form method="post" action="/tasks/{{ task.id }}/model-pulls">
+  <label for="model-pull-name">Pull</label>
+  <input id="model-pull-name" name="name" type="text">
+  <label for="model-pull-context">Context</label>
+  <input id="model-pull-context" name="context" type="text">
+  <label for="model-pull-arm">Arm</label>
+  <input id="model-pull-arm" name="arm" type="text">
+  <label for="model-pull-reward">Reward</label>
+  <input id="model-pull-reward" name="reward" type="text">
+  <p><button type="submit">Record model pull</button></p>
+</form>
+{% endif %}
+{% if task.models.can_choose %}
+<form method="post" action="/tasks/{{ task.id }}/model-choices">
+  <label for="model-choice-context">Context</label>
+  <input id="model-choice-context" name="context" type="text">
+  <label for="model-choice-model">Model</label>
+  <input id="model-choice-model" name="model" type="text">
+  <p><button type="submit">Choose with model</button></p>
+</form>
+{% endif %}
+
+<h2>Search</h2>
+{% if task.search.designs %}
+<ul id="search-designs">
+  {% for item in task.search.designs %}
+  <li>{{ item.name }}: {{ item.first }}, {{ item.second }}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>No designs yet.</p>
+{% endif %}
+{% if task.search.observations %}
+<ul id="search-observations">
+  {% for item in task.search.observations %}
+  <li>{{ item.name }}: {{ item.design }}, objectives {{ item.first }} and {{ item.second }}, constraint {{ item.constraint }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.search.front %}
+<ul id="search-front">
+  {% for item in task.search.front %}
+  <li>{{ item.design }}: {{ item.first }}, {{ item.second }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.search.next %}
+<p id="search-next">Next design: {{ task.search.next }}</p>
+{% endif %}
+{% if task.search.can_name %}
+<form method="post" action="/tasks/{{ task.id }}/search-designs">
+  <label for="search-design-name">Design</label>
+  <input id="search-design-name" name="name" type="text">
+  <label for="search-first">First setting</label>
+  <input id="search-first" name="first" type="text">
+  <label for="search-second">Second setting</label>
+  <input id="search-second" name="second" type="text">
+  <p><button type="submit">Name design</button></p>
+</form>
+{% endif %}
+{% if task.search.can_observe %}
+<form method="post" action="/tasks/{{ task.id }}/search-observations">
+  <label for="search-observation-name">Observation</label>
+  <input id="search-observation-name" name="name" type="text">
+  <label for="search-observation-design">Design</label>
+  <input id="search-observation-design" name="design" type="text">
+  <label for="search-objective-first">First objective</label>
+  <input id="search-objective-first" name="first" type="text">
+  <label for="search-objective-second">Second objective</label>
+  <input id="search-objective-second" name="second" type="text">
+  <label for="search-constraint">Constraint</label>
+  <input id="search-constraint" name="constraint" type="text">
+  <p><button type="submit">Record observation</button></p>
+</form>
+{% endif %}
+{% if task.search.can_recommend %}
+<form method="post" action="/tasks/{{ task.id }}/search-recommendations">
+  <p><button type="submit">Recommend a design</button></p>
+</form>
+{% endif %}
+
 <h2>Executions</h2>
 {% if task.executions %}
 <ul id="command-executions">

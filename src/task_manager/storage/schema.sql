@@ -831,3 +831,118 @@ CREATE TABLE IF NOT EXISTS safe_effect (
     recorded_at TEXT NOT NULL,
     CHECK (action != instead)
 );
+
+CREATE TABLE IF NOT EXISTS explore_arm (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS explore_context (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS explore_pull (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    context_id INTEGER NOT NULL REFERENCES explore_context(id),
+    arm_id INTEGER NOT NULL REFERENCES explore_arm(id),
+    reward INTEGER NOT NULL CHECK (reward IN (1, 2)),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS explore_draw (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL UNIQUE REFERENCES task(id),
+    context TEXT NOT NULL CHECK (length(trim(context)) > 0),
+    arm TEXT NOT NULL CHECK (length(trim(arm)) > 0),
+    sample TEXT NOT NULL CHECK (sample IN ('middle', 'high', 'low')),
+    step INTEGER NOT NULL CHECK (step >= 1),
+    recorded_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS model_arm (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS model_context (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    first_mark INTEGER NOT NULL CHECK (first_mark IN (0, 1)),
+    second_mark INTEGER NOT NULL CHECK (second_mark IN (0, 1)),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS model_pull (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    context_id INTEGER NOT NULL REFERENCES model_context(id),
+    arm_id INTEGER NOT NULL REFERENCES model_arm(id),
+    reward INTEGER NOT NULL CHECK (reward IN (1, 2)),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS model_choice (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL UNIQUE REFERENCES task(id),
+    context TEXT NOT NULL CHECK (length(trim(context)) > 0),
+    model TEXT NOT NULL CHECK (model IN ('linear', 'neural')),
+    arm TEXT NOT NULL CHECK (length(trim(arm)) > 0),
+    recorded_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS bayes_design (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    first_setting INTEGER NOT NULL CHECK (first_setting IN (1, 2)),
+    second_setting INTEGER NOT NULL CHECK (second_setting IN (1, 2)),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS bayes_observation (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    design_id INTEGER NOT NULL REFERENCES bayes_design(id),
+    first_objective INTEGER NOT NULL CHECK (first_objective IN (1, 2)),
+    second_objective INTEGER NOT NULL CHECK (second_objective IN (1, 2)),
+    constraint_mark INTEGER NOT NULL CHECK (constraint_mark IN (1, 2)),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name),
+    UNIQUE (task_id, design_id)
+);
+
+CREATE TABLE IF NOT EXISTS bayes_pick (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL UNIQUE REFERENCES task(id),
+    next_design TEXT NOT NULL CHECK (length(trim(next_design)) > 0),
+    recorded_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS bayes_front (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    design TEXT NOT NULL CHECK (length(trim(design)) > 0),
+    first_objective INTEGER NOT NULL CHECK (first_objective IN (1, 2)),
+    second_objective INTEGER NOT NULL CHECK (second_objective IN (1, 2)),
+    position INTEGER NOT NULL CHECK (position >= 1),
+    recorded_at TEXT NOT NULL
+);

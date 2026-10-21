@@ -551,6 +551,128 @@ def compare_actions(
     )
 
 
+@router.post("/tasks/{task_id}/thompson-arms")
+def name_explore_arm(request: Request, task_id: int, name: str = Form("")):
+    return _after(request, task_id, _workspace(request).name_explore_arm(task_id, name))
+
+
+@router.post("/tasks/{task_id}/thompson-contexts")
+def name_explore_context(request: Request, task_id: int, name: str = Form("")):
+    return _after(
+        request, task_id, _workspace(request).name_explore_context(task_id, name)
+    )
+
+
+@router.post("/tasks/{task_id}/thompson-pulls")
+def record_pull(
+    request: Request,
+    task_id: int,
+    name: str = Form(""),
+    context: str = Form(""),
+    arm: str = Form(""),
+    reward: str = Form(""),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).record_pull(task_id, name, context, arm, reward),
+    )
+
+
+@router.post("/tasks/{task_id}/thompson-draws")
+def draw_arm(request: Request, task_id: int, context: str = Form("")):
+    return _after(request, task_id, _workspace(request).draw_arm(task_id, context))
+
+
+@router.post("/tasks/{task_id}/model-arms")
+def name_model_arm(request: Request, task_id: int, name: str = Form("")):
+    return _after(request, task_id, _workspace(request).name_model_arm(task_id, name))
+
+
+@router.post("/tasks/{task_id}/model-contexts")
+def name_model_context(
+    request: Request,
+    task_id: int,
+    name: str = Form(""),
+    first: str = Form(""),
+    second: str = Form(""),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).name_model_context(task_id, name, first, second),
+    )
+
+
+@router.post("/tasks/{task_id}/model-pulls")
+def record_model_pull(
+    request: Request,
+    task_id: int,
+    name: str = Form(""),
+    context: str = Form(""),
+    arm: str = Form(""),
+    reward: str = Form(""),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).record_model_pull(task_id, name, context, arm, reward),
+    )
+
+
+@router.post("/tasks/{task_id}/model-choices")
+def choose_model_arm(
+    request: Request,
+    task_id: int,
+    context: str = Form(""),
+    model: str = Form(""),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).choose_model_arm(task_id, context, model),
+    )
+
+
+@router.post("/tasks/{task_id}/search-designs")
+def name_search_design(
+    request: Request,
+    task_id: int,
+    name: str = Form(""),
+    first: str = Form(""),
+    second: str = Form(""),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).name_search_design(task_id, name, first, second),
+    )
+
+
+@router.post("/tasks/{task_id}/search-observations")
+def record_observation(
+    request: Request,
+    task_id: int,
+    name: str = Form(""),
+    design: str = Form(""),
+    first: str = Form(""),
+    second: str = Form(""),
+    constraint: str = Form(""),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).record_observation(
+            task_id, name, design, first, second, constraint
+        ),
+    )
+
+
+@router.post("/tasks/{task_id}/search-recommendations")
+def recommend_design(request: Request, task_id: int):
+    return _after(request, task_id, _workspace(request).recommend_design(task_id))
+
+
 @router.post("/tasks/{task_id}/workflow/checkpoints")
 def take_checkpoint(request: Request, task_id: int, name: str = Form("")):
     return _after(request, task_id, _workspace(request).take_checkpoint(task_id, name))

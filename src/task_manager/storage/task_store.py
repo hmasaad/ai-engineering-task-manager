@@ -280,6 +280,9 @@ def task_detail(connection: sqlite3.Connection, task_id: int) -> dict[str, objec
         "bandit": _bandit(connection, task_id),
         "evaluation": _evaluation(connection, task_id),
         "safety": _safety(connection, task_id),
+        "exploration": _exploration(connection, task_id),
+        "models": _models(connection, task_id),
+        "search": _search(connection, task_id),
     }
 
 
@@ -364,6 +367,24 @@ def _evaluation(connection: sqlite3.Connection, task_id: int) -> dict[str, objec
 
 def _safety(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
     from task_manager.domain.safety import payload
+
+    return payload(connection, task_id)
+
+
+def _exploration(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
+    from task_manager.domain.exploration import payload
+
+    return payload(connection, task_id)
+
+
+def _models(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
+    from task_manager.domain.linear_bandit import payload
+
+    return payload(connection, task_id)
+
+
+def _search(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
+    from task_manager.domain.bayes import payload
 
     return payload(connection, task_id)
 
