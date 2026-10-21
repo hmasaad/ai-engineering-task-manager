@@ -946,3 +946,119 @@ CREATE TABLE IF NOT EXISTS bayes_front (
     position INTEGER NOT NULL CHECK (position >= 1),
     recorded_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS fidelity_candidate (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS fidelity_measurement (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    candidate_id INTEGER NOT NULL REFERENCES fidelity_candidate(id),
+    fidelity INTEGER NOT NULL CHECK (fidelity IN (1, 2)),
+    score INTEGER NOT NULL CHECK (score IN (1, 2)),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name),
+    UNIQUE (task_id, candidate_id, fidelity)
+);
+
+CREATE TABLE IF NOT EXISTS fidelity_round (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL UNIQUE REFERENCES task(id),
+    winner TEXT NOT NULL,
+    recorded_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS fidelity_kept (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    candidate TEXT NOT NULL CHECK (length(trim(candidate)) > 0),
+    position INTEGER NOT NULL CHECK (position >= 1),
+    recorded_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS allocation_agent (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS allocation_yield (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    agent_id INTEGER NOT NULL REFERENCES allocation_agent(id),
+    value INTEGER NOT NULL CHECK (value IN (1, 2)),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name),
+    UNIQUE (task_id, agent_id)
+);
+
+CREATE TABLE IF NOT EXISTS allocation_share (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    agent TEXT NOT NULL CHECK (length(trim(agent)) > 0),
+    units INTEGER NOT NULL CHECK (units >= 0 AND units <= 4),
+    position INTEGER NOT NULL CHECK (position >= 1),
+    recorded_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS asha_trial (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS asha_runner (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS asha_rung (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    trial_id INTEGER NOT NULL REFERENCES asha_trial(id),
+    rung INTEGER NOT NULL CHECK (rung IN (1, 2)),
+    score INTEGER NOT NULL CHECK (score IN (1, 2)),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name),
+    UNIQUE (task_id, trial_id, rung)
+);
+
+CREATE TABLE IF NOT EXISTS asha_promoted (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    trial TEXT NOT NULL CHECK (length(trim(trial)) > 0),
+    position INTEGER NOT NULL CHECK (position >= 1),
+    recorded_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS asha_assignment (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    trial TEXT NOT NULL CHECK (length(trim(trial)) > 0),
+    runner TEXT NOT NULL CHECK (length(trim(runner)) > 0),
+    position INTEGER NOT NULL CHECK (position >= 1),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, trial)
+);
+
+CREATE TABLE IF NOT EXISTS asha_winner (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL UNIQUE REFERENCES task(id),
+    winner TEXT NOT NULL CHECK (length(trim(winner)) > 0),
+    recorded_at TEXT NOT NULL
+);

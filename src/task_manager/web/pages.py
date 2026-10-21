@@ -673,6 +673,96 @@ def recommend_design(request: Request, task_id: int):
     return _after(request, task_id, _workspace(request).recommend_design(task_id))
 
 
+@router.post("/tasks/{task_id}/fidelity-candidates")
+def name_fidelity_candidate(request: Request, task_id: int, name: str = Form("")):
+    return _after(
+        request, task_id, _workspace(request).name_fidelity_candidate(task_id, name)
+    )
+
+
+@router.post("/tasks/{task_id}/fidelity-measurements")
+def record_fidelity(
+    request: Request,
+    task_id: int,
+    name: str = Form(""),
+    candidate: str = Form(""),
+    fidelity: str = Form(""),
+    score: str = Form(""),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).record_fidelity(task_id, name, candidate, fidelity, score),
+    )
+
+
+@router.post("/tasks/{task_id}/fidelity-halves")
+def halve_candidates(request: Request, task_id: int):
+    return _after(request, task_id, _workspace(request).halve_candidates(task_id))
+
+
+@router.post("/tasks/{task_id}/allocation-agents")
+def name_allocation_agent(request: Request, task_id: int, name: str = Form("")):
+    return _after(
+        request, task_id, _workspace(request).name_allocation_agent(task_id, name)
+    )
+
+
+@router.post("/tasks/{task_id}/allocation-yields")
+def record_yield(
+    request: Request,
+    task_id: int,
+    name: str = Form(""),
+    agent: str = Form(""),
+    value: str = Form(""),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).record_yield(task_id, name, agent, value),
+    )
+
+
+@router.post("/tasks/{task_id}/allocation-shares")
+def allocate_pool(request: Request, task_id: int):
+    return _after(request, task_id, _workspace(request).allocate_pool(task_id))
+
+
+@router.post("/tasks/{task_id}/hyperband-trials")
+def name_hyperband_trial(request: Request, task_id: int, name: str = Form("")):
+    return _after(
+        request, task_id, _workspace(request).name_hyperband_trial(task_id, name)
+    )
+
+
+@router.post("/tasks/{task_id}/hyperband-runners")
+def name_hyperband_runner(request: Request, task_id: int, name: str = Form("")):
+    return _after(
+        request, task_id, _workspace(request).name_hyperband_runner(task_id, name)
+    )
+
+
+@router.post("/tasks/{task_id}/hyperband-rungs")
+def record_rung(
+    request: Request,
+    task_id: int,
+    name: str = Form(""),
+    trial: str = Form(""),
+    rung: str = Form(""),
+    score: str = Form(""),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).record_rung(task_id, name, trial, rung, score),
+    )
+
+
+@router.post("/tasks/{task_id}/hyperband-schedules")
+def schedule_hyperband(request: Request, task_id: int):
+    return _after(request, task_id, _workspace(request).schedule_hyperband(task_id))
+
+
 @router.post("/tasks/{task_id}/workflow/checkpoints")
 def take_checkpoint(request: Request, task_id: int, name: str = Form("")):
     return _after(request, task_id, _workspace(request).take_checkpoint(task_id, name))

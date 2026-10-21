@@ -283,6 +283,9 @@ def task_detail(connection: sqlite3.Connection, task_id: int) -> dict[str, objec
         "exploration": _exploration(connection, task_id),
         "models": _models(connection, task_id),
         "search": _search(connection, task_id),
+        "fidelity": _fidelity(connection, task_id),
+        "allocation": _allocation(connection, task_id),
+        "hyperband": _hyperband(connection, task_id),
     }
 
 
@@ -385,6 +388,24 @@ def _models(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
 
 def _search(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
     from task_manager.domain.bayes import payload
+
+    return payload(connection, task_id)
+
+
+def _fidelity(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
+    from task_manager.domain.fidelity import payload
+
+    return payload(connection, task_id)
+
+
+def _allocation(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
+    from task_manager.domain.allocation import payload
+
+    return payload(connection, task_id)
+
+
+def _hyperband(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
+    from task_manager.domain.asha import payload
 
     return payload(connection, task_id)
 

@@ -282,6 +282,44 @@ class SearchObservationIn(BaseModel):
     constraint: str = ""
 
 
+class FidelityNameIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+
+
+class FidelityMeasurementIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+    candidate: str = ""
+    fidelity: str = ""
+    score: str = ""
+
+
+class AllocationNameIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+
+
+class AllocationYieldIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+    agent: str = ""
+    value: str = ""
+
+
+class HyperbandNameIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+
+
+class HyperbandRungIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+    trial: str = ""
+    rung: str = ""
+    score: str = ""
+
+
 class RejectionIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
     name: str = ""
@@ -973,6 +1011,76 @@ def record_observation(request: Request, task_id: int, body: SearchObservationIn
 @router.post("/tasks/{task_id}/search-recommendations")
 def recommend_design(request: Request, task_id: int):
     return _respond(request.app.state.workspace.recommend_design(task_id))
+
+
+@router.post("/tasks/{task_id}/fidelity-candidates")
+def name_fidelity_candidate(request: Request, task_id: int, body: FidelityNameIn):
+    return _respond(
+        request.app.state.workspace.name_fidelity_candidate(task_id, body.name)
+    )
+
+
+@router.post("/tasks/{task_id}/fidelity-measurements")
+def record_fidelity(request: Request, task_id: int, body: FidelityMeasurementIn):
+    return _respond(
+        request.app.state.workspace.record_fidelity(
+            task_id, body.name, body.candidate, body.fidelity, body.score
+        )
+    )
+
+
+@router.post("/tasks/{task_id}/fidelity-halves")
+def halve_candidates(request: Request, task_id: int):
+    return _respond(request.app.state.workspace.halve_candidates(task_id))
+
+
+@router.post("/tasks/{task_id}/allocation-agents")
+def name_allocation_agent(request: Request, task_id: int, body: AllocationNameIn):
+    return _respond(
+        request.app.state.workspace.name_allocation_agent(task_id, body.name)
+    )
+
+
+@router.post("/tasks/{task_id}/allocation-yields")
+def record_yield(request: Request, task_id: int, body: AllocationYieldIn):
+    return _respond(
+        request.app.state.workspace.record_yield(
+            task_id, body.name, body.agent, body.value
+        )
+    )
+
+
+@router.post("/tasks/{task_id}/allocation-shares")
+def allocate_pool(request: Request, task_id: int):
+    return _respond(request.app.state.workspace.allocate_pool(task_id))
+
+
+@router.post("/tasks/{task_id}/hyperband-trials")
+def name_hyperband_trial(request: Request, task_id: int, body: HyperbandNameIn):
+    return _respond(
+        request.app.state.workspace.name_hyperband_trial(task_id, body.name)
+    )
+
+
+@router.post("/tasks/{task_id}/hyperband-runners")
+def name_hyperband_runner(request: Request, task_id: int, body: HyperbandNameIn):
+    return _respond(
+        request.app.state.workspace.name_hyperband_runner(task_id, body.name)
+    )
+
+
+@router.post("/tasks/{task_id}/hyperband-rungs")
+def record_rung(request: Request, task_id: int, body: HyperbandRungIn):
+    return _respond(
+        request.app.state.workspace.record_rung(
+            task_id, body.name, body.trial, body.rung, body.score
+        )
+    )
+
+
+@router.post("/tasks/{task_id}/hyperband-schedules")
+def schedule_hyperband(request: Request, task_id: int):
+    return _respond(request.app.state.workspace.schedule_hyperband(task_id))
 
 
 @router.post("/tasks/{task_id}/workflow/outbox/reject")

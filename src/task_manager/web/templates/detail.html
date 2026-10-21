@@ -1181,6 +1181,181 @@
 </form>
 {% endif %}
 
+<h2>Fidelity</h2>
+{% if task.fidelity.candidates %}
+<ul id="fidelity-candidates">
+  {% for item in task.fidelity.candidates %}
+  <li>{{ item.name }}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>No candidates yet.</p>
+{% endif %}
+{% if task.fidelity.measurements %}
+<ul id="fidelity-measurements">
+  {% for item in task.fidelity.measurements %}
+  <li>{{ item.name }}: {{ item.candidate }}, fidelity {{ item.fidelity }}, score {{ item.score }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.fidelity.kept %}
+<ul id="fidelity-kept">
+  {% for item in task.fidelity.kept %}
+  <li>{{ item.name }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.fidelity.winner %}
+<p id="fidelity-winner">Winner: {{ task.fidelity.winner }}</p>
+{% endif %}
+{% if task.fidelity.can_name %}
+<form method="post" action="/tasks/{{ task.id }}/fidelity-candidates">
+  <label for="fidelity-candidate-name">Candidate</label>
+  <input id="fidelity-candidate-name" name="name" type="text">
+  <p><button type="submit">Name candidate</button></p>
+</form>
+{% endif %}
+{% if task.fidelity.can_measure %}
+<form method="post" action="/tasks/{{ task.id }}/fidelity-measurements">
+  <label for="fidelity-measurement-name">Measurement</label>
+  <input id="fidelity-measurement-name" name="name" type="text">
+  <label for="fidelity-measurement-candidate">Candidate</label>
+  <input id="fidelity-measurement-candidate" name="candidate" type="text">
+  <label for="fidelity-level">Fidelity</label>
+  <input id="fidelity-level" name="fidelity" type="text">
+  <label for="fidelity-score">Score</label>
+  <input id="fidelity-score" name="score" type="text">
+  <p><button type="submit">Record fidelity</button></p>
+</form>
+{% endif %}
+{% if task.fidelity.can_halve %}
+<form method="post" action="/tasks/{{ task.id }}/fidelity-halves">
+  <p><button type="submit">Halve the field</button></p>
+</form>
+{% endif %}
+
+<h2>Allocation</h2>
+{% if task.allocation.agents %}
+<ul id="allocation-agents">
+  {% for item in task.allocation.agents %}
+  <li>{{ item.name }}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>No agents yet.</p>
+{% endif %}
+{% if task.allocation.yields %}
+<ul id="allocation-yields">
+  {% for item in task.allocation.yields %}
+  <li>{{ item.name }}: {{ item.agent }}, yield {{ item.value }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.allocation.shares %}
+<ul id="allocation-shares">
+  {% for item in task.allocation.shares %}
+  <li>{{ item.agent }}: {{ item.units }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.allocation.can_name %}
+<form method="post" action="/tasks/{{ task.id }}/allocation-agents">
+  <label for="allocation-agent-name">Agent</label>
+  <input id="allocation-agent-name" name="name" type="text">
+  <p><button type="submit">Name agent</button></p>
+</form>
+{% endif %}
+{% if task.allocation.can_record %}
+<form method="post" action="/tasks/{{ task.id }}/allocation-yields">
+  <label for="allocation-yield-name">Yield</label>
+  <input id="allocation-yield-name" name="name" type="text">
+  <label for="allocation-yield-agent">Agent</label>
+  <input id="allocation-yield-agent" name="agent" type="text">
+  <label for="allocation-yield-value">Value</label>
+  <input id="allocation-yield-value" name="value" type="text">
+  <p><button type="submit">Record yield</button></p>
+</form>
+{% endif %}
+{% if task.allocation.can_allocate %}
+<form method="post" action="/tasks/{{ task.id }}/allocation-shares">
+  <p><button type="submit">Allocate the pool</button></p>
+</form>
+{% endif %}
+
+<h2>Hyperband</h2>
+{% if task.hyperband.trials %}
+<ul id="hyperband-trials">
+  {% for item in task.hyperband.trials %}
+  <li>{{ item.name }}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>No trials yet.</p>
+{% endif %}
+{% if task.hyperband.runners %}
+<ul id="hyperband-runners">
+  {% for item in task.hyperband.runners %}
+  <li>{{ item.name }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.hyperband.rungs %}
+<ul id="hyperband-rungs">
+  {% for item in task.hyperband.rungs %}
+  <li>{{ item.name }}: {{ item.trial }}, rung {{ item.rung }}, score {{ item.score }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.hyperband.promoted %}
+<ul id="hyperband-promoted">
+  {% for item in task.hyperband.promoted %}
+  <li>{{ item.name }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.hyperband.assignments %}
+<ul id="hyperband-assignments">
+  {% for item in task.hyperband.assignments %}
+  <li>{{ item.trial }}: {{ item.runner }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.hyperband.winner %}
+<p id="hyperband-winner">Winner: {{ task.hyperband.winner }}</p>
+{% endif %}
+{% if task.hyperband.can_name %}
+<form method="post" action="/tasks/{{ task.id }}/hyperband-trials">
+  <label for="hyperband-trial-name">Trial</label>
+  <input id="hyperband-trial-name" name="name" type="text">
+  <p><button type="submit">Name trial</button></p>
+</form>
+{% endif %}
+{% if task.hyperband.can_runner %}
+<form method="post" action="/tasks/{{ task.id }}/hyperband-runners">
+  <label for="hyperband-runner-name">Runner</label>
+  <input id="hyperband-runner-name" name="name" type="text">
+  <p><button type="submit">Name runner</button></p>
+</form>
+{% endif %}
+{% if task.hyperband.can_record %}
+<form method="post" action="/tasks/{{ task.id }}/hyperband-rungs">
+  <label for="hyperband-rung-name">Rung score</label>
+  <input id="hyperband-rung-name" name="name" type="text">
+  <label for="hyperband-rung-trial">Trial</label>
+  <input id="hyperband-rung-trial" name="trial" type="text">
+  <label for="hyperband-rung-level">Rung</label>
+  <input id="hyperband-rung-level" name="rung" type="text">
+  <label for="hyperband-rung-score">Score</label>
+  <input id="hyperband-rung-score" name="score" type="text">
+  <p><button type="submit">Record rung</button></p>
+</form>
+{% endif %}
+{% if task.hyperband.can_schedule %}
+<form method="post" action="/tasks/{{ task.id }}/hyperband-schedules">
+  <p><button type="submit">Schedule the next trial</button></p>
+</form>
+{% endif %}
+
 <h2>Executions</h2>
 {% if task.executions %}
 <ul id="command-executions">

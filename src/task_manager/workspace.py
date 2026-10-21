@@ -5,6 +5,8 @@ from pathlib import Path
 
 from task_manager.clock import ScriptedClock, SystemClock, format_time
 from task_manager.domain import (
+    allocation,
+    asha,
     bandit,
     bayes,
     branch,
@@ -16,6 +18,7 @@ from task_manager.domain import (
     evaluation,
     exploration,
     file_read,
+    fidelity,
     folder,
     implementation,
     instruction,
@@ -467,6 +470,48 @@ class Workspace:
 
     def recommend_design(self, task_id: int):
         return self._run(lambda conn, at: bayes.recommend(conn, task_id, at))
+
+    def name_fidelity_candidate(self, task_id: int, name: str):
+        return self._run(lambda conn, at: fidelity.name_candidate(conn, task_id, name, at))
+
+    def record_fidelity(
+        self, task_id: int, name: str, candidate: str, level: str, score: str
+    ):
+        return self._run(
+            lambda conn, at: fidelity.record_fidelity(
+                conn, task_id, name, candidate, level, score, at
+            )
+        )
+
+    def halve_candidates(self, task_id: int):
+        return self._run(lambda conn, at: fidelity.halve(conn, task_id, at))
+
+    def name_allocation_agent(self, task_id: int, name: str):
+        return self._run(lambda conn, at: allocation.name_agent(conn, task_id, name, at))
+
+    def record_yield(self, task_id: int, name: str, agent: str, amount: str):
+        return self._run(
+            lambda conn, at: allocation.record_yield(
+                conn, task_id, name, agent, amount, at
+            )
+        )
+
+    def allocate_pool(self, task_id: int):
+        return self._run(lambda conn, at: allocation.allocate(conn, task_id, at))
+
+    def name_hyperband_trial(self, task_id: int, name: str):
+        return self._run(lambda conn, at: asha.name_trial(conn, task_id, name, at))
+
+    def name_hyperband_runner(self, task_id: int, name: str):
+        return self._run(lambda conn, at: asha.name_runner(conn, task_id, name, at))
+
+    def record_rung(self, task_id: int, name: str, trial: str, rung: str, score: str):
+        return self._run(
+            lambda conn, at: asha.record_rung(conn, task_id, name, trial, rung, score, at)
+        )
+
+    def schedule_hyperband(self, task_id: int):
+        return self._run(lambda conn, at: asha.schedule(conn, task_id, at))
 
     def reject_outbox(self, task_id: int, name: str | None, reason: str | None):
         return self._run(lambda conn, at: workflow.reject(conn, task_id, name, reason, at))
