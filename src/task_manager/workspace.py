@@ -12,6 +12,7 @@ from task_manager.domain import (
     branch,
     capture,
     commit_file,
+    consensus,
     decisions,
     delete_file,
     dependency,
@@ -512,6 +513,26 @@ class Workspace:
 
     def schedule_hyperband(self, task_id: int):
         return self._run(lambda conn, at: asha.schedule(conn, task_id, at))
+
+    def name_consensus_point(self, task_id: int, name: str, setting: str):
+        return self._run(
+            lambda conn, at: consensus.name_point(conn, task_id, name, setting, at)
+        )
+
+    def name_consensus_node(self, task_id: int, name: str):
+        return self._run(lambda conn, at: consensus.name_node(conn, task_id, name, at))
+
+    def record_consensus_report(
+        self, task_id: int, name: str, node: str, point: str, score: str
+    ):
+        return self._run(
+            lambda conn, at: consensus.record_report(
+                conn, task_id, name, node, point, score, at
+            )
+        )
+
+    def agree_consensus(self, task_id: int):
+        return self._run(lambda conn, at: consensus.agree(conn, task_id, at))
 
     def reject_outbox(self, task_id: int, name: str | None, reason: str | None):
         return self._run(lambda conn, at: workflow.reject(conn, task_id, name, reason, at))

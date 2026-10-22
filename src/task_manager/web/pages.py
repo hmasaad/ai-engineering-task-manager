@@ -763,6 +763,48 @@ def schedule_hyperband(request: Request, task_id: int):
     return _after(request, task_id, _workspace(request).schedule_hyperband(task_id))
 
 
+@router.post("/tasks/{task_id}/consensus-points")
+def name_consensus_point(
+    request: Request,
+    task_id: int,
+    name: str = Form(""),
+    setting: str = Form(""),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).name_consensus_point(task_id, name, setting),
+    )
+
+
+@router.post("/tasks/{task_id}/consensus-nodes")
+def name_consensus_node(request: Request, task_id: int, name: str = Form("")):
+    return _after(
+        request, task_id, _workspace(request).name_consensus_node(task_id, name)
+    )
+
+
+@router.post("/tasks/{task_id}/consensus-reports")
+def record_consensus_report(
+    request: Request,
+    task_id: int,
+    name: str = Form(""),
+    node: str = Form(""),
+    point: str = Form(""),
+    score: str = Form(""),
+):
+    return _after(
+        request,
+        task_id,
+        _workspace(request).record_consensus_report(task_id, name, node, point, score),
+    )
+
+
+@router.post("/tasks/{task_id}/consensus-agreements")
+def agree_consensus(request: Request, task_id: int):
+    return _after(request, task_id, _workspace(request).agree_consensus(task_id))
+
+
 @router.post("/tasks/{task_id}/workflow/checkpoints")
 def take_checkpoint(request: Request, task_id: int, name: str = Form("")):
     return _after(request, task_id, _workspace(request).take_checkpoint(task_id, name))

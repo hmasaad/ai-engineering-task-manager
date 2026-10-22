@@ -1356,6 +1356,75 @@
 </form>
 {% endif %}
 
+<h2>Consensus</h2>
+{% if task.consensus.points %}
+<ul id="consensus-points">
+  {% for item in task.consensus.points %}
+  <li>{{ item.name }}: {{ item.setting }}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>No points yet.</p>
+{% endif %}
+{% if task.consensus.nodes %}
+<ul id="consensus-nodes">
+  {% for item in task.consensus.nodes %}
+  <li>{{ item.name }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.consensus.reports %}
+<ul id="consensus-reports">
+  {% for item in task.consensus.reports %}
+  <li>{{ item.name }}: {{ item.node }}, {{ item.point }}, score {{ item.score }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.consensus.proposals %}
+<ul id="consensus-proposals">
+  {% for item in task.consensus.proposals %}
+  <li>{{ item.node }}: {{ item.point }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if task.consensus.choice %}
+<p id="consensus-choice">Agreement: {{ task.consensus.choice.point }} on {{ task.consensus.choice.node }}, {{ task.consensus.choice.suggestions }} suggestions</p>
+{% endif %}
+{% if task.consensus.can_name %}
+<form method="post" action="/tasks/{{ task.id }}/consensus-points">
+  <label for="consensus-point-name">Point</label>
+  <input id="consensus-point-name" name="name" type="text">
+  <label for="consensus-point-setting">Setting</label>
+  <input id="consensus-point-setting" name="setting" type="text">
+  <p><button type="submit">Name point</button></p>
+</form>
+{% endif %}
+{% if task.consensus.can_node %}
+<form method="post" action="/tasks/{{ task.id }}/consensus-nodes">
+  <label for="consensus-node-name">Node</label>
+  <input id="consensus-node-name" name="name" type="text">
+  <p><button type="submit">Name node</button></p>
+</form>
+{% endif %}
+{% if task.consensus.can_report %}
+<form method="post" action="/tasks/{{ task.id }}/consensus-reports">
+  <label for="consensus-report-name">Report</label>
+  <input id="consensus-report-name" name="name" type="text">
+  <label for="consensus-report-node">Node</label>
+  <input id="consensus-report-node" name="node" type="text">
+  <label for="consensus-report-point">Point</label>
+  <input id="consensus-report-point" name="point" type="text">
+  <label for="consensus-report-score">Score</label>
+  <input id="consensus-report-score" name="score" type="text">
+  <p><button type="submit">Record report</button></p>
+</form>
+{% endif %}
+{% if task.consensus.can_agree %}
+<form method="post" action="/tasks/{{ task.id }}/consensus-agreements">
+  <p><button type="submit">Agree on a design</button></p>
+</form>
+{% endif %}
+
 <h2>Executions</h2>
 {% if task.executions %}
 <ul id="command-executions">

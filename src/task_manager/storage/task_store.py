@@ -286,6 +286,7 @@ def task_detail(connection: sqlite3.Connection, task_id: int) -> dict[str, objec
         "fidelity": _fidelity(connection, task_id),
         "allocation": _allocation(connection, task_id),
         "hyperband": _hyperband(connection, task_id),
+        "consensus": _consensus(connection, task_id),
     }
 
 
@@ -406,6 +407,12 @@ def _allocation(connection: sqlite3.Connection, task_id: int) -> dict[str, objec
 
 def _hyperband(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
     from task_manager.domain.asha import payload
+
+    return payload(connection, task_id)
+
+
+def _consensus(connection: sqlite3.Connection, task_id: int) -> dict[str, object]:
+    from task_manager.domain.consensus import payload
 
     return payload(connection, task_id)
 

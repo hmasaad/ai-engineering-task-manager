@@ -320,6 +320,25 @@ class HyperbandRungIn(BaseModel):
     score: str = ""
 
 
+class ConsensusPointIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+    setting: str = ""
+
+
+class ConsensusNameIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+
+
+class ConsensusReportIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = ""
+    node: str = ""
+    point: str = ""
+    score: str = ""
+
+
 class RejectionIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
     name: str = ""
@@ -1081,6 +1100,36 @@ def record_rung(request: Request, task_id: int, body: HyperbandRungIn):
 @router.post("/tasks/{task_id}/hyperband-schedules")
 def schedule_hyperband(request: Request, task_id: int):
     return _respond(request.app.state.workspace.schedule_hyperband(task_id))
+
+
+@router.post("/tasks/{task_id}/consensus-points")
+def name_consensus_point(request: Request, task_id: int, body: ConsensusPointIn):
+    return _respond(
+        request.app.state.workspace.name_consensus_point(
+            task_id, body.name, body.setting
+        )
+    )
+
+
+@router.post("/tasks/{task_id}/consensus-nodes")
+def name_consensus_node(request: Request, task_id: int, body: ConsensusNameIn):
+    return _respond(
+        request.app.state.workspace.name_consensus_node(task_id, body.name)
+    )
+
+
+@router.post("/tasks/{task_id}/consensus-reports")
+def record_consensus_report(request: Request, task_id: int, body: ConsensusReportIn):
+    return _respond(
+        request.app.state.workspace.record_consensus_report(
+            task_id, body.name, body.node, body.point, body.score
+        )
+    )
+
+
+@router.post("/tasks/{task_id}/consensus-agreements")
+def agree_consensus(request: Request, task_id: int):
+    return _respond(request.app.state.workspace.agree_consensus(task_id))
 
 
 @router.post("/tasks/{task_id}/workflow/outbox/reject")

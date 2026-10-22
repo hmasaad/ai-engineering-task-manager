@@ -1062,3 +1062,50 @@ CREATE TABLE IF NOT EXISTS asha_winner (
     winner TEXT NOT NULL CHECK (length(trim(winner)) > 0),
     recorded_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS consensus_point (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    setting INTEGER NOT NULL CHECK (setting IN (1, 2)),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS consensus_node (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS consensus_report (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    node_id INTEGER NOT NULL REFERENCES consensus_node(id),
+    point_id INTEGER NOT NULL REFERENCES consensus_point(id),
+    score INTEGER NOT NULL CHECK (score IN (1, 2)),
+    recorded_at TEXT NOT NULL,
+    UNIQUE (task_id, name),
+    UNIQUE (task_id, node_id, point_id)
+);
+
+CREATE TABLE IF NOT EXISTS consensus_proposal (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES task(id),
+    node TEXT NOT NULL CHECK (length(trim(node)) > 0),
+    point TEXT NOT NULL CHECK (length(trim(point)) > 0),
+    position INTEGER NOT NULL CHECK (position >= 1),
+    recorded_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS consensus_choice (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL UNIQUE REFERENCES task(id),
+    point TEXT NOT NULL CHECK (length(trim(point)) > 0),
+    node TEXT NOT NULL CHECK (length(trim(node)) > 0),
+    suggestions INTEGER NOT NULL CHECK (suggestions >= 1 AND suggestions <= 2),
+    recorded_at TEXT NOT NULL
+);
